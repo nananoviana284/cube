@@ -230,6 +230,7 @@ export function lessonPage(root: HTMLElement, id: string): () => void {
         if (typeof scene.options === 'function') {
           const g = scene.options();
           view.setAlg(g.setup);
+          view.highlight(g.highlight ?? scene.highlight ?? null);
           view.resetView();
           opts = g.options;
         } else opts = scene.options;
@@ -300,29 +301,72 @@ export function lessonPage(root: HTMLElement, id: string): () => void {
     }
 
     if (scene.kind === 'real') {
-      view.setAlg(scene.parentSetup ?? '');
+      const ps = resolveSetup(scene.parentSetup) || undefined;
+      view.setAlg(ps ?? '');
       view.highlight(null);
       view.showArrow(null);
       st.cover(true);
       const followBox = h('div', { class: 'step-say' }, '拿起你的魔方！');
-      const ps = scene.parentSetup;
+      const hintBox = h('ol', { class: 'hint-list' });
+      const hints = scene.hints ?? [];
+      const reveal = scene.reveal;
+      let shown = 0;
       const doneItem: Action = { label: '我做到了', key: '空格', kind: 'green', icon: 'check', onclick: next };
+      // 挑战：提示一条一条给，全部听完才能看答案；用了提示不扣星，看答案才算一次"没做出来"
+      const nextHint = () => {
+        if (shown >= hints.length) return;
+        const t = hints[shown++];
+        hintBox.append(h('li', null, t));
+        speak(`提示：${t}`);
+        setButtons();
+      };
+      const showReveal = async () => {
+        if (!reveal) return;
+        const mine = ++gen;
+        mistakes++;
+        st.cover(false);
+        view.setAlg(ps ?? '');
+        for (const step of reveal) {
+          if (!alive || mine !== gen) return;
+          followBox.textContent = step.say;
+          await speak(step.say);
+          if (!alive || mine !== gen) return;
+          await playWithArrows(view, step.moves);
+          await wait(400);
+        }
+        if (alive && mine === gen) {
+          followBox.textContent = '看懂了吗？用你的魔方再做一次，做到了按空格。';
+          speak(followBox.textContent);
+          setButtons();
+        }
+      };
       const followSetup = ps
         ? async () => {
             const mine = ++gen;
             followBox.textContent = `白色朝下、${faceName('F')}色朝前，跟我摆！`;
             await speak(followBox.textContent);
             if (!(await follow(ps, '', followBox, mine))) return;
-            followBox.textContent = '摆好了！现在自己让好朋友回家吧！做到了就按空格。';
+            st.cover(true);
+            followBox.textContent = hints.length ? '摆好了！现在自己想办法。卡住了按 H 听提示。做到了按空格。' : '摆好了！现在自己让好朋友回家吧！做到了就按空格。';
             speak(followBox.textContent);
-            keys(say, { space: next, '2': followSetup }, [{ label: '再摆一次', key: '2', kind: 'blue', icon: 'cube', onclick: followSetup! }, doneItem]);
+            setButtons();
           }
         : undefined;
+      function setButtons(): void {
+        const canReveal = !!reveal && shown >= hints.length;
+        keys(say, { space: next, '2': followSetup, hint: hints.length ? nextHint : undefined, '3': canReveal ? showReveal : undefined }, [
+          ...(ps ? [{ label: '跟我摆', key: '2', kind: 'blue' as const, icon: 'cube' as const, onclick: followSetup! }] : []),
+          ...(shown < hints.length ? [{ label: '听提示', key: 'H', kind: 'ghost' as const, icon: 'bulb' as const, onclick: nextHint }] : []),
+          ...(canReveal ? [{ label: '看答案', key: '3', kind: 'ghost' as const, icon: 'play' as const, onclick: showReveal }] : []),
+          doneItem,
+        ]);
+      }
       if (ps) speak(`${say}。按 2，我带你摆出来。`);
-      side.append(followBox);
-      keys(say, { space: next, '2': followSetup }, [...(ps ? [{ label: '跟我摆', key: '2', kind: 'blue' as const, icon: 'cube' as const, onclick: followSetup! }] : []), doneItem]);
+      side.append(followBox, hintBox);
+      setButtons();
       const items = scene.checklist ?? [];
       if (items.length) parentBox.append(h('p', null, h('b', null, '看孩子能不能：')), h('ul', null, ...items.map((t) => h('li', null, t))));
+      if (hints.length) parentBox.append(h('p', null, '这是"先试后讲"的挑战：请忍住不要直接告诉答案。孩子卡住时按 H 一条条给提示，最后才看答案。孩子弄坏了也没关系，问他"哪一步弄坏的？怎么让它回来？"'));
       if (ps) parentBox.append(h('p', null, '摆法：从复原的魔方（白色朝下、', faceName('F'), '色朝前）做 ', h('span', { class: 'alg' }, ps), '，或者让孩子按 2 跟着屏幕一步步摆。'));
     }
 

@@ -1,4 +1,5 @@
 import { invertAlg } from '../cube/alg';
+import { mirrorAlg } from '../content/slots';
 import { F2L_CASES, OLL_CORNERS, OLL_EDGES, PLL_CORNERS, PLL_EDGES, joinSteps } from '../content/algs';
 import { load, save } from '../store';
 import { beep, h } from '../ui/dom';
@@ -15,13 +16,23 @@ export interface BookEntry {
   look: string;
   alg: string;
   diagram?: 'oll' | 'pll';
+  /** 亲戚：和别的公式的关系 */
+  kin?: string;
 }
 
 export const BOOK: BookEntry[] = [
-  ...F2L_CASES.map((c) => ({ key: `f2l-${c.id}`, group: 'F2L 好朋友回家', name: c.name, emoji: c.emoji, look: c.look, alg: joinSteps(c.steps) })),
-  ...OLL_EDGES.map((c) => ({ key: `oe-${c.id}`, group: 'OLL 第一步：黄十字', name: c.name, emoji: c.emoji, look: c.look, alg: c.alg, diagram: 'oll' as const })),
-  ...OLL_CORNERS.map((c) => ({ key: `oc-${c.id}`, group: 'OLL 第二步：顶面全黄', name: c.name, emoji: c.emoji, look: c.look, alg: c.alg, diagram: 'oll' as const })),
-  ...[...PLL_CORNERS, ...PLL_EDGES].map((c) => ({ key: `p-${c.id}`, group: 'PLL：侧面排好', name: c.name, emoji: c.emoji, look: c.look, alg: c.alg, diagram: 'pll' as const })),
+  ...F2L_CASES.map((c) => ({
+    key: `f2l-${c.id}`,
+    group: 'F2L 好朋友回家',
+    name: c.name,
+    emoji: c.emoji,
+    look: c.look,
+    alg: joinSteps(c.steps),
+    kin: `照镜子（家在左前）：${mirrorAlg(joinSteps(c.steps))}`,
+  })),
+  ...OLL_EDGES.map((c) => ({ key: `oe-${c.id}`, group: 'OLL 第一步：黄十字', name: c.name, emoji: c.emoji, look: c.look, alg: c.alg, kin: c.kin, diagram: 'oll' as const })),
+  ...OLL_CORNERS.map((c) => ({ key: `oc-${c.id}`, group: 'OLL 第二步：顶面全黄', name: c.name, emoji: c.emoji, look: c.look, alg: c.alg, kin: c.kin, diagram: 'oll' as const })),
+  ...[...PLL_CORNERS, ...PLL_EDGES].map((c) => ({ key: `p-${c.id}`, group: 'PLL：侧面排好', name: c.name, emoji: c.emoji, look: c.look, alg: c.alg, kin: c.kin, diagram: 'pll' as const })),
 ];
 
 export const LEVELS = [
@@ -96,6 +107,7 @@ export function bookPage(root: HTMLElement): () => void {
   const pvName = h('div', { class: 'book-name' });
   const pvLook = h('div', { class: 'book-look' });
   const algBox = h('div');
+  const pvKin = h('div', { class: 'book-kin' });
   const nick = h('input', { type: 'text', placeholder: '比如：大眼睛' }) as HTMLInputElement;
   const backdrop = h('div', { class: 'sheet-backdrop' });
   const preview = h(
@@ -105,6 +117,7 @@ export function bookPage(root: HTMLElement): () => void {
     h('div', { class: 'sheet-head' }, h('div', null, pvName, pvLook), h('button', { class: 'sheet-close', type: 'button', 'aria-label': '关闭', onclick: () => closeSheet() }, icon('close', 20))),
     st.el,
     algBox,
+    pvKin,
     h('div', { class: 'pv-row' }, h('label', { class: 'nick-field' }, '我们家叫它', nick), keyBtn('btn green', '再看一遍', '空格', () => play(selected), 'replay')),
   );
   const closeSheet = () => {
@@ -125,6 +138,7 @@ export function bookPage(root: HTMLElement): () => void {
     view.highlight(isF2L ? ['DFR', 'FR'] : null);
     pvName.textContent = nameOf(e);
     pvLook.textContent = e.look;
+    pvKin.textContent = e.kin ? `亲戚：${e.kin}` : '';
     nick.value = load().nick[e.key] ?? '';
     const av = algView(e.alg);
     algBox.replaceChildren(av.el);
@@ -198,7 +212,7 @@ export function bookPage(root: HTMLElement): () => void {
             'div',
             { class: 'book-head' },
             e.diagram ? topDiagram(e.alg, e.diagram) : h('div', { class: 'book-emoji', 'aria-hidden': 'true' }, icon('pair', 34)),
-            h('div', { class: 'book-meta' }, h('div', { class: 'book-name' }, nameOf(e)), h('div', { class: 'book-look' }, e.look), h('div', { class: 'book-alg' }, e.alg)),
+            h('div', { class: 'book-meta' }, h('div', { class: 'book-name' }, nameOf(e)), h('div', { class: 'book-look' }, e.look), h('div', { class: 'book-alg' }, e.alg), e.kin ? h('div', { class: 'book-kin' }, `亲戚：${e.kin}`) : null),
           ),
           h(
             'div',

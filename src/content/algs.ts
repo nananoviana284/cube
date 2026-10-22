@@ -129,22 +129,24 @@ export interface LLCase {
   look: string;
   alg: string;
   tip?: string;
+  /** 和别的公式是什么关系（倒着做、做两遍、外面套一扇门……） */
+  kin?: string;
 }
 
 export const OLL_EDGES: LLCase[] = [
-  { id: 'line', name: '一字', emoji: '➖', look: '顶面中间一条横线', alg: "F R U R' U' F'", tip: '横线要横着放（左右方向）。' },
-  { id: 'L', name: '小拐弯', emoji: '↩️', look: '顶面一个小 L', alg: "F U R U' R' F'", tip: 'L 的两条腿放在后面和左边（像左上角的拐弯）。' },
-  { id: 'dot', name: '一个点', emoji: '⚫', look: '顶面只有中心是黄的', alg: "F R U R' U' F' U2 F U R U' R' F'", tip: '= 一字 + 转两下 + 小拐弯，连起来做。' },
+  { id: 'line', name: '一字', emoji: '➖', look: '顶面中间一条横线', alg: "F R U R' U' F'", tip: '横线要横着放（左右方向）。', kin: "前面开门 F + 小手法 R U R' U' + 关门 F'。" },
+  { id: 'L', name: '小拐弯', emoji: '↩️', look: '顶面一个小 L', alg: "F U R U' R' F'", tip: 'L 的两条腿放在后面和左边（像左上角的拐弯）。', kin: "一字的亲戚：门还是 F，中间换成 U R U' R'。" },
+  { id: 'dot', name: '一个点', emoji: '⚫', look: '顶面只有中心是黄的', alg: "F R U R' U' F' U2 F U R U' R' F'", tip: '= 一字 + 转两下 + 小拐弯，连起来做。', kin: '拼起来的：一字 + U2 + 小拐弯。' },
 ];
 
 export const OLL_CORNERS: LLCase[] = [
-  { id: 'sune', name: '小鱼（右）', emoji: '🐟', look: '一个角是黄的，鱼头朝左下', alg: "R U R' U R U2 R'" },
-  { id: 'antisune', name: '小鱼（左）', emoji: '🐠', look: '一个角是黄的，鱼头朝右下', alg: "R U2 R' U' R U' R'" },
-  { id: 'H', name: '双车灯', emoji: '🚗', look: '没有黄角，左右两边各有一对黄色', alg: "R U R' U R U' R' U R U2 R'" },
+  { id: 'sune', name: '小鱼（右）', emoji: '🐟', look: '一个角是黄的，鱼头朝左下', alg: "R U R' U R U2 R'", kin: '倒着做 = 小鱼（左）；做两遍 = 双车灯。' },
+  { id: 'antisune', name: '小鱼（左）', emoji: '🐠', look: '一个角是黄的，鱼头朝右下', alg: "R U2 R' U' R U' R'", kin: '小鱼（右）倒着做就是它。' },
+  { id: 'H', name: '双车灯', emoji: '🚗', look: '没有黄角，左右两边各有一对黄色', alg: "R U R' U R U' R' U R U2 R'", kin: '小鱼（右）连做两遍，效果一样。' },
   { id: 'pi', name: '大车灯', emoji: '🚙', look: '没有黄角，只有一边有一对黄色', alg: "R U2 R2 U' R2 U' R2 U2 R" },
-  { id: 'U', name: '车头灯', emoji: '🔦', look: '两个黄角相邻，对面有一对黄色', alg: "R2 D R' U2 R D' R' U2 R'" },
-  { id: 'T', name: '小T', emoji: '🔨', look: '两个黄角相邻，侧面各有一个黄', alg: "r U R' U' r' F R F'" },
-  { id: 'L', name: '蝴蝶结', emoji: '🎀', look: '两个黄角在对角', alg: "F' r U R' U' r' F R" },
+  { id: 'U', name: '车头灯', emoji: '🔦', look: '两个黄角相邻，对面有一对黄色', alg: "R2 D R' U2 R D' R' U2 R'", kin: '下面借一块（D）、顶上转两下、还回去（D 撇）：还是开门关门。' },
+  { id: 'T', name: '小T', emoji: '🔨', look: '两个黄角相邻，侧面各有一个黄', alg: "r U R' U' r' F R F'", kin: "中间藏着小手法 U R' U'，用小 r 开门关门。" },
+  { id: 'L', name: '蝴蝶结', emoji: '🎀', look: '两个黄角在对角', alg: "F' r U R' U' r' F R", kin: "= 前面开门 F' + 小T + 关门 F。" },
 ];
 
 // ——— PLL：两步法（先角，再棱）———————————————————
@@ -156,6 +158,7 @@ export const PLL_CORNERS: LLCase[] = [
     look: '有一边有"车灯"（两个角颜色相同）',
     alg: "R U R' U' R' F R2 U' R' U' R U R' F'",
     tip: '把车灯放在左边再做。',
+    kin: "开头就是小手法 R U R' U'。",
   },
   {
     id: 'Y',
@@ -164,12 +167,13 @@ export const PLL_CORNERS: LLCase[] = [
     look: '四边都没有车灯',
     alg: "F R U' R' U' R U R' F' R U R' U' R' F R F'",
     tip: '对角两个角交换，哪边对着你都可以。',
+    kin: "前半段像一字（F 开门关门），后半段是小手法 + R' F R F'。",
   },
 ];
 
 export const PLL_EDGES: LLCase[] = [
-  { id: 'Ua', name: '三棱轮换（顺）', emoji: '🔄', look: '有一面全对了，另外三条棱顺着转', alg: "R U' R U R U R U' R' U' R2", tip: '完成的那面放后面。' },
-  { id: 'Ub', name: '三棱轮换（逆）', emoji: '🔃', look: '有一面全对了，另外三条棱逆着转', alg: "R2 U R U R' U' R' U' R' U R'", tip: '完成的那面放后面。' },
+  { id: 'Ua', name: '三棱轮换（顺）', emoji: '🔄', look: '有一面全对了，另外三条棱顺着转', alg: "R U' R U R U R U' R' U' R2", tip: '完成的那面放后面。', kin: '倒着做 = 三棱轮换（逆）。' },
+  { id: 'Ub', name: '三棱轮换（逆）', emoji: '🔃', look: '有一面全对了，另外三条棱逆着转', alg: "R2 U R U R' U' R' U' R' U R'", tip: '完成的那面放后面。', kin: '倒着做 = 三棱轮换（顺）。' },
   { id: 'H', name: '十字交换', emoji: '➕', look: '对面两两交换，四面都不对', alg: "M2 U M2 U2 M2 U M2" },
   { id: 'Z', name: '相邻交换', emoji: '⚡', look: '相邻两两交换，四面都不对', alg: "M2 U M2 U M' U2 M2 U2 M' U2" },
 ];
