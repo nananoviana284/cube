@@ -24,7 +24,14 @@ export function topDiagram(alg: string, mode: DiagramMode): SVGSVGElement {
   return stateDiagram(stateFrom(invertAlg(alg)), mode);
 }
 
-export function stateDiagram(s: CubeState, mode: DiagramMode): SVGSVGElement {
+/** 叠在图上的效果：打圈 = 会翻/拧，箭头 = 去哪里，蓝框 = 认它要看的贴纸 */
+export interface Overlay {
+  spins?: Vec[];
+  arrows?: { from: Vec; to: Vec }[];
+  cues?: { pos: Vec; face: Face }[];
+}
+
+export function stateDiagram(s: CubeState, mode: DiagramMode, overlay?: Overlay): SVGSVGElement {
   const top = s.centerColor('U');
   const paint = (c: Color | null) => (!c ? GREY : mode === 'pll' ? FILL[c] : c === top ? FILL[c] : GREY);
   const isCorner = (pos: Vec) => pos[0] !== 0 && pos[2] !== 0;
@@ -32,7 +39,9 @@ export function stateDiagram(s: CubeState, mode: DiagramMode): SVGSVGElement {
   const svg = document.createElementNS(ns, 'svg');
   svg.setAttribute('viewBox', '0 0 100 100');
   svg.classList.add('diagram');
-  const rect = (x: number, y: number, w: number, hgt: number, fill: string, ignore = false) => {
+  const boxes = new Map<string, [number, number, number, number]>();
+  const rect = (x: number, y: number, w: number, hgt: number, fill: string, ignore = false, at?: string) => {
+    if (at) boxes.set(at, [x, y, w, hgt]);
     const r = document.createElementNS(ns, 'rect');
     r.setAttribute('x', String(x));
     r.setAttribute('y', String(y));
@@ -52,14 +61,71 @@ export function stateDiagram(s: CubeState, mode: DiagramMode): SVGSVGElement {
   for (let r = 0; r < 3; r++)
     for (let c = 0; c < 3; c++) {
       const pos: Vec = [c - 1, 1, r - 1];
-      rect(o + c * cell, o + r * cell, cell, cell, paint(s.colorAt(pos, 'U')), skip(pos));
+      rect(o + c * cell, o + r * cell, cell, cell, paint(s.colorAt(pos, 'U')), skip(pos), `${pos}:U`);
     }
-  const strip = (face: Face, pos: Vec, x: number, y: number, w: number, hgt: number) => rect(x, y, w, hgt, paint(s.colorAt(pos, face)), skip(pos));
+  const strip = (face: Face, pos: Vec, x: number, y: number, w: number, hgt: number) => rect(x, y, w, hgt, paint(s.colorAt(pos, face)), skip(pos), `${pos}:${face}`);
   for (let i = 0; i < 3; i++) {
     strip('B', [i - 1, 1, -1], o + i * cell + 2, o - side - 2, cell - 4, side);
     strip('F', [i - 1, 1, 1], o + i * cell + 2, o + 3 * cell + 2, cell - 4, side);
     strip('L', [-1, 1, i - 1], o - side - 2, o + i * cell + 2, side, cell - 4);
     strip('R', [1, 1, i - 1], o + 3 * cell + 2, o + i * cell + 2, side, cell - 4);
   }
+  if (overlay) drawOverlay(svg, overlay, boxes, (p) => [o + (p[0] + 1) * cell + cell / 2, o + (p[2] + 1) * cell + cell / 2]);
   return svg;
+}
+
+const BLUE = '#1b4fb8';
+
+function drawOverlay(svg: SVGSVGElement, ov: Overlay, boxes: Map<string, [number, number, number, number]>, center: (p: Vec) => [number, number]): void {
+  const ns = 'http://www.w3.org/2000/svg';
+  const el = (tag: string, attrs: Record<string, string | number>) => {
+    const e = document.createElementNS(ns, tag);
+    for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, String(v));
+    svg.append(e);
+    return e;
+  };
+  // 箭头头
+  const id = `ah${Math.random().toString(36).slice(2, 8)}`;
+  const defs = el('defs', {});
+  const marker = document.createElementNS(ns, 'marker');
+  for (const [k, v] of Object.entries({ id, viewBox: '0 0 10 10', refX: 8, refY: 5, markerWidth: 4.5, markerHeight: 4.5, orient: 'auto-start-reverse' })) marker.setAttribute(k, String(v));
+  const head = document.createElementNS(ns, 'path');
+  head.setAttribute('d', 'M0 0L10 5L0 10z');
+  head.setAttribute('fill', BLUE);
+  marker.append(head);
+  defs.append(marker);
+
+  for (const c of ov.cues ?? []) {
+    const b = boxes.get(`${c.pos}:${c.face}`);
+    if (b) el('rect', { x: b[0] - 1.2, y: b[1] - 1.2, width: b[2] + 2.4, height: b[3] + 2.4, rx: 3.5, fill: 'none', stroke: BLUE, 'stroke-width': 2.6 });
+  }
+  for (const p of ov.spins ?? []) {
+    const [x, y] = center(p);
+    // 一个转圈的箭头：这块会翻/拧
+    el('path', { d: `M${x + 5.5} ${y - 2.5}A6 6 0 1 0 ${x + 4} ${y + 4.2}`, fill: 'none', stroke: BLUE, 'stroke-width': 2.2, 'stroke-linecap': 'round', 'marker-start': `url(#${id})` });
+  }
+  const arrows = ov.arrows ?? [];
+  const has = (a: Vec, b: Vec) => arrows.some((m) => `${m.from}` === `${a}` && `${m.to}` === `${b}`);
+  for (const m of arrows) {
+    const swap = has(m.to, m.from);
+    // 两块互换只画一条双头箭头
+    if (swap && `${m.from}` > `${m.to}`) continue;
+    const [x1, y1] = center(m.from);
+    const [x2, y2] = center(m.to);
+    const len = Math.hypot(x2 - x1, y2 - y1);
+    const ux = (x2 - x1) / len;
+    const uy = (y2 - y1) / len;
+    const pad = 5;
+    el('line', {
+      x1: x1 + ux * pad,
+      y1: y1 + uy * pad,
+      x2: x2 - ux * pad,
+      y2: y2 - uy * pad,
+      stroke: BLUE,
+      'stroke-width': 2.2,
+      'stroke-linecap': 'round',
+      'marker-end': `url(#${id})`,
+      ...(swap ? { 'marker-start': `url(#${id})` } : {}),
+    });
+  }
 }

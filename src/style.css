@@ -2717,3 +2717,50 @@ body.parent-mode #app {
   width: 44px;
   height: 44px;
 }
+.effect {
+  margin-top: 10px;
+}
+.effect:empty {
+  display: none;
+}
+.effect-main {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+}
+.effect-main .diagram {
+  width: 140px;
+  height: 140px;
+  flex: none;
+}
+.effect-h {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--ink);
+  margin-top: 2px;
+}
+.effect p {
+  margin: 2px 0 8px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--ink-2);
+}
+.effect-angles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 6px 0 4px;
+}
+.effect-angles figure {
+  margin: 0;
+  text-align: center;
+  font-size: 12px;
+  color: var(--ink-2);
+}
+.effect-angles .diagram {
+  width: 72px;
+  height: 72px;
+}
+.effect-angles .alg {
+  color: var(--ink);
+}

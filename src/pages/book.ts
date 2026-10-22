@@ -1,5 +1,6 @@
 import { applyAlg, invertAlg, stateFrom } from '../cube/alg';
 import { mirrorAlg } from '../content/slots';
+import { anglesOf, effectOf, effectText } from '../content/effect';
 import { F2L_CASES, OLL_CORNERS, OLL_EDGES, PLL_CORNERS, PLL_EDGES, joinSteps, type Step } from '../content/algs';
 import { load, save } from '../store';
 import { beep, h, speak } from '../ui/dom';
@@ -110,6 +111,7 @@ export function bookPage(root: HTMLElement): () => void {
   const pvLook = h('div', { class: 'book-look' });
   const algBox = h('div');
   const pvKin = h('div', { class: 'book-kin' });
+  const pvEffect = h('div', { class: 'effect' });
   const nick = h('input', { type: 'text', placeholder: '比如：大眼睛' }) as HTMLInputElement;
   const backdrop = h('div', { class: 'sheet-backdrop' });
   const preview = h(
@@ -119,6 +121,7 @@ export function bookPage(root: HTMLElement): () => void {
     h('div', { class: 'sheet-head' }, h('div', null, pvName, pvLook), h('button', { class: 'sheet-close', type: 'button', 'aria-label': '关闭', onclick: () => closeSheet() }, icon('close', 20))),
     st.el,
     algBox,
+    pvEffect,
     pvKin,
     h('div', { class: 'pv-row' }, h('label', { class: 'nick-field' }, '我们家叫它', nick), keyBtn('btn green', '再看一遍', '空格', () => play(selected), 'replay')),
   );
@@ -141,10 +144,39 @@ export function bookPage(root: HTMLElement): () => void {
     pvName.textContent = nameOf(e);
     pvLook.textContent = e.look;
     pvKin.replaceChildren(...kinView(e));
+    pvEffect.replaceChildren(...effectView(e));
     nick.value = load().nick[e.key] ?? '';
     const av = algView(e.alg);
     algBox.replaceChildren(av.el);
     return av;
+  };
+  /** 效果图：这个公式翻了哪块、谁去哪、认它看哪里；还有同一个情况的几个角度 */
+  const effectView = (e: BookEntry): Node[] => {
+    if (!e.diagram) return [];
+    const mode = e.diagram;
+    const s = stateFrom(invertAlg(e.alg));
+    const ef = effectOf(s, mode);
+    const big = stateDiagram(s, mode, { spins: [...ef.flips, ...ef.twists], arrows: ef.moves, cues: ef.cues });
+    const cueText = mode === 'pll' ? '蓝框是车灯（同一面两个角颜色一样）。' : mode === 'edges' ? '蓝框是已经朝上的黄色棱块，看它们摆成什么形状。' : '蓝框是侧面的黄色，看它们在哪里。';
+    const angles = anglesOf(e.alg, mode);
+    return [
+      h(
+        'div',
+        { class: 'effect-main' },
+        big,
+        h('div', null, h('div', { class: 'effect-h' }, '这个公式做什么'), h('p', null, effectText(ef, mode)), h('div', { class: 'effect-h' }, '认出它要看哪里'), h('p', null, `${e.look}。${cueText}`)),
+      ),
+      ...(angles.length > 1
+        ? [
+            h('div', { class: 'effect-h' }, `遇到不同角度：先拨顶层，摆成第一个的样子再做（一共 ${angles.length} 种角度）`),
+            h(
+              'div',
+              { class: 'effect-angles' },
+              ...angles.map((a) => h('figure', null, stateDiagram(a.state, mode, { cues: effectOf(a.state, mode).cues }), h('figcaption', null, a.pre ? h('span', null, '先拨 ', h('b', { class: 'alg' }, a.pre)) : '直接做'))),
+            ),
+          ]
+        : [h('p', { class: 'effect-note' }, '这个情况转到哪个角度看起来都一样，不用拨，直接做。')]),
+    ];
   };
   /** 亲戚：一句话 + 拼起来的一步步图 + 可以点过去的亲戚 */
   const kinView = (e: BookEntry): Node[] => {
