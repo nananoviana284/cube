@@ -1,9 +1,10 @@
 import { invertAlg, randomScramble } from '../cube/alg';
-import { F2L_CASES, PLL_CORNERS, PLL_EDGES, joinSteps } from '../content/algs';
+import { F2L_CASES, PLL_CORNERS, PLL_EDGES, joinSteps, type F2LCase } from '../content/algs';
 import { partnerOf } from '../content/lessons';
 import { load, save } from '../store';
 import { beep, celebrate, h, pick, speak, stopSpeak } from '../ui/dom';
-import { bubble, keyHints, movePad, playWithArrows, stage, topbar, wait } from '../ui/components';
+import { bubble, keyBtn, keyHints, stage, topbar, wait } from '../ui/components';
+import { runDrill } from '../ui/drill';
 import { GAMES } from './home';
 import { setKeys } from '../ui/keys';
 import { rater, withNicks } from './book';
@@ -159,78 +160,76 @@ function friendGame(root: HTMLElement): () => void {
 // ——— F2L 练习场 ———
 function f2lGame(root: HTMLElement): () => void {
   const st = stage('front');
-  const { view } = st;
+  let alive = true;
   let onlyBasic = true;
-  let solved = 0;
-  let current = F2L_CASES[0];
-  let setup = '';
-  let auf = '';
-  let hinting = false;
-  const info = h('div', { class: 'step-say' });
-  const rateBox = h('div', { class: 'rate-box' });
+  let round = 0;
+  const SET = 5;
+  const box = h('div', { class: 'side' });
+  const lastBox = h('div', { class: 'rate-box' });
   const side = h('div', { class: 'side' });
-  const modeBtn = h('button', { class: 'btn ghost' });
-  const newCase = () => {
+  const modeBtn = h('button', { class: 'chip' });
+  const syncMode = () => (modeBtn.textContent = onlyBasic ? '只练 4 把钥匙' : '全部情况');
+  syncMode();
+  modeBtn.onclick = () => {
+    onlyBasic = !onlyBasic;
+    syncMode();
+  };
+  // 公式本里"不会"的出现得多，"会了"的少
+  const pickCase = (): F2LCase => {
     const pool = F2L_CASES.filter((c) => !onlyBasic || c.basic);
-    // 公式本里"不会"的出现得多，"会了"的少
     const sk = load().skills;
     const weight = (id: string) => [3, 2, 1][sk[`f2l-${id}`] ?? 1];
     let r = Math.random() * pool.reduce((a, c) => a + weight(c.id), 0);
-    current = pool.find((c) => (r -= weight(c.id)) < 0) ?? pool[0];
-    rateBox.replaceChildren(h('span', { class: 'muted' }, '这一个：'), rater(`f2l-${current.id}`));
-    auf = pick(['', 'U', "U'", 'U2']);
-    setup = `${invertAlg(joinSteps(current.steps))} ${auf}`.trim();
-    view.setAlg(setup);
-    view.highlight(['DFR', 'FR']);
-    view.showArrow(null);
-    hinting = false;
-    pad.mark(null);
-    info.textContent = `已完成 ${solved} 个 · 先想一想：这是哪把钥匙？`;
+    return pool.find((c) => (r -= weight(c.id)) < 0) ?? pool[0];
   };
-  const pad = movePad(['R', "R'", 'U', "U'", 'F', "F'", 'U2'], async (m) => {
-    if (view.busy) return;
-    view.showArrow(null);
-    pad.mark(null);
-    await view.play(m);
-    if (view.state.isSolved()) {
-      solved++;
-      beep('good');
-      celebrate('回家啦！');
-      await wait(900);
-      newCase();
-    }
-  });
-  const hintBtn = h('button', { class: 'btn ghost' }, '💡 看答案', h('kbd', null, 'H'));
-  hintBtn.onclick = async () => {
-    if (hinting) return;
-    hinting = true;
-    view.setAlg(setup);
-    info.textContent = withNicks(`${current.emoji} ${current.name}：${current.look}`);
-    speak(load().nick[`f2l-${current.id}`] || current.name);
-    await playWithArrows(view, `${auf ? invertAlg(auf) : ''} ${joinSteps(current.steps)}`.trim());
-    await wait(600);
-    view.setAlg(setup);
-    hinting = false;
+  const current: F2LCase[] = [];
+  const base = { esc: () => (location.hash = '#/') };
+  const start = async () => {
+    round++;
+    current.length = 0;
+    const r = await runDrill({
+      st,
+      box,
+      reps: SET,
+      highlight: ['DFR', 'FR'],
+      alive: () => alive,
+      baseKeys: base,
+      next: (rep) => {
+        const c = pickCase();
+        current[rep] = c;
+        const alg = joinSteps(c.steps);
+        const auf = pick(['', 'U', "U'", 'U2']);
+        return { setup: `${invertAlg(alg)} ${auf}`.trim(), solution: `${auf ? invertAlg(auf) + ' ' : ''}${alg}` };
+      },
+      onSuccess: (rep, ms) => {
+        const c = current[rep];
+        lastBox.replaceChildren(h('span', { class: 'muted' }, `刚才：${withNicks(c.name)} ${(ms / 1000).toFixed(1)} 秒，会了吗？`), rater(`f2l-${c.id}`));
+      },
+    });
+    if (!alive) return;
+    const avg = r.times.reduce((a, b) => a + b, 0) / r.times.length;
+    const rec = saveBest('f2l', avg, false);
+    box.replaceChildren(
+      h('div', { class: 'step-say big-say' }, `第 ${round} 组完成！平均 ${(avg / 1000).toFixed(1)} 秒${rec ? ' 🏆 新纪录' : ''}${r.fails ? `，没成功 ${r.fails} 次` : ''}`),
+      h('div', { class: 'btn-row' }, keyBtn('btn green', '再来一组', '空格', start)),
+    );
+    setKeys({ ...base, space: start });
   };
-  const sync = () => (modeBtn.textContent = onlyBasic ? '只练 4 把钥匙 ✓' : '全部情况 ✓');
-  modeBtn.onclick = () => {
-    onlyBasic = !onlyBasic;
-    sync();
-    newCase();
-  };
-  sync();
   side.append(
-    bubble('让亮着的好朋友回家！先说出是哪把钥匙，再动手。'),
-    info,
-    pad.el,
-    rateBox,
-    h('div', { class: 'btn-row' }, hintBtn, h('button', { class: 'btn ghost', onclick: () => view.setAlg(setup) }, '🔁 重来', h('kbd', null, '⌫')), h('button', { class: 'btn ghost', onclick: newCase }, '⏭ 换一个', h('kbd', null, '→'))),
-    modeBtn,
+    bubble('拿好你的魔方！屏幕出一个情况，你在魔方上摆好，按空格开始计时，做完再按空格。一组 5 个。'),
+    box,
+    lastBox,
+    h('div', { class: 'chips' }, h('span', { class: 'muted' }, '出题范围：'), modeBtn),
+    h('div', { class: 'parent-note', html: '<b>怎么用：</b>完全在真魔方上练。用时就是"认出情况 + 做完"的时间，比只看做得对不对更能看出熟练度。每次成功后可以给这个情况打分，"不会"的以后出现得更多。' }),
   );
-  root.append(topbar('🌳 好朋友回家练习场', '#/'), h('div', { class: 'player' }, st.el, side));
-  newCase();
-  setKeys({ hint: () => hintBtn.click(), back: () => view.setAlg(setup), right: newCase, esc: () => (location.hash = '#/') });
-  return () => view.dispose();
+  root.append(topbar('🌳 好朋友回家练习场', '#/', bestLine('f2l', (v) => `平均 ${(v / 1000).toFixed(1)} 秒`)), h('div', { class: 'player' }, st.el, side));
+  box.append(h('div', { class: 'btn-row' }, keyBtn('btn green', '开始 ▶', '空格', start)));
+  setKeys({ ...base, space: start });
+  speak('拿好你的魔方，按空格开始');
+  return () => {
+    alive = false;
+    st.view.dispose();
+  };
 }
 
 // ——— 车灯快认：PLL 识别 ———

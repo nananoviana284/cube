@@ -5,20 +5,23 @@ import { pick } from '../ui/dom';
 
 // 课程 = 一串"场景"。每节 5~8 分钟，正好是 5 岁孩子专注的长度。
 
-export type Goal = 'solved' | 'cross' | 'topCross' | 'oll';
+/** 真魔方练习的一道题：先摆 setup，再用 solution 还原 */
+export interface DrillCase {
+  setup: string;
+  solution: string;
+}
 
 export type Scene =
   | { kind: 'talk'; say: string; setup?: string | (() => string); highlight?: string[]; view?: 'front' | 'top' }
   | { kind: 'watch'; say: string; setup: string | (() => string); highlight?: string[]; steps: Step[]; view?: 'front' | 'top' }
   | {
-      kind: 'try';
+      /** 真魔方练习：屏幕出题 → 孩子在自己的魔方上摆好 → 空格计时 → 用真魔方做 → 自己说成功没有 */
+      kind: 'drill';
       say: string;
-      setup: string | (() => string);
+      /** 第 rep 次（从 0 开始）的题 */
+      cases: (rep: number) => DrillCase;
       highlight?: string[];
-      goal: Goal;
-      moves: string[];
-      hint: string;
-      view?: 'front' | 'top';
+      reps: number;
     }
   | { kind: 'pick'; say: string; setup: string | (() => string); highlight?: string[]; answer: (s: CubeState) => string[]; rounds?: number }
   | {
@@ -61,10 +64,19 @@ export const ISLANDS: Island[] = [
 ];
 
 const SLOT_PIECES = ['DFR', 'FR'];
-const F2L_MOVES = ['R', "R'", 'U', "U'", 'F', "F'", 'U2'];
 const randU = () => pick(['', 'U', "U'", 'U2']);
 const caseSetup = (c: F2LCase, auf = true) => () => `${invertAlg(joinSteps(c.steps))} ${auf ? randU() : ''}`.trim();
 const caseById = (id: string) => F2L_CASES.find((c) => c.id === id)!;
+
+/** 一个 F2L 情况出题：rep 0 用标准位置，之后随机转一下顶层（要先转 U 对准） */
+const f2lDrill =
+  (c: F2LCase) =>
+  (rep: number): DrillCase => {
+    const alg = joinSteps(c.steps);
+    const auf = rep === 0 ? '' : pick(['U', "U'", 'U2']);
+    return { setup: `${invertAlg(alg)} ${auf}`.trim(), solution: `${auf ? invertAlg(auf) + ' ' : ''}${alg}` };
+  };
+const fixedDrill = (solution: string) => (): DrillCase => ({ setup: invertAlg(solution), solution });
 
 /** 底层白十字 + 前两层完成时，顶层的打乱（只打乱顶层） */
 const llScramble = (alg: string) => `${invertAlg(alg)} ${randU()}`.trim();
@@ -86,28 +98,11 @@ function basicLesson(id: string, caseId: string, title: string): Lesson {
       { kind: 'talk', say: `认一认：${c.look}亮着的就是这对好朋友。`, setup: caseSetup(c, false), highlight: SLOT_PIECES },
       { kind: 'watch', say: '看我做，每一步都有原因。', setup: caseSetup(c, false), highlight: SLOT_PIECES, steps: c.steps },
       {
-        kind: 'try',
-        say: '轮到你啦！用下面的按钮，让好朋友回家。',
-        setup: caseSetup(c, false),
+        kind: 'drill',
+        say: '拿出你的魔方！先跟着屏幕摆出这个情况，再用万能钥匙让好朋友回家。做 3 次，后面两次位置会变，要先转顶层对好。',
+        cases: f2lDrill(c),
         highlight: SLOT_PIECES,
-        goal: 'solved',
-        moves: F2L_MOVES,
-        hint: joinSteps(c.steps),
-      },
-      {
-        kind: 'try',
-        say: '这次好朋友站的位置不一样！先转顶层，把它变成刚才的样子，再用万能钥匙。',
-        setup: () => `${invertAlg(joinSteps(c.steps))} ${pick(['U', "U'", 'U2'])}`,
-        highlight: SLOT_PIECES,
-        goal: 'solved',
-        moves: F2L_MOVES,
-        hint: '先转 U 把它摆成刚才的样子',
-      },
-      {
-        kind: 'real',
-        say: '拿出你自己的魔方！请爸爸妈妈帮你摆出这个情况，做 5 次。',
-        parentSetup: invertAlg(joinSteps(c.steps)),
-        checklist: ['做之前先说出：角块在哪？棱块在哪？', '边做边说：开门、碰头、关门', '5 次都对了'],
+        reps: 3,
       },
     ],
   };
@@ -187,20 +182,16 @@ export const LESSONS: Lesson[] = [
       },
       { kind: 'talk', say: '记住这个魔法：开门的手，一定要关门。这样底层就不会乱。', setup: "R U R'" },
       {
-        kind: 'try',
-        say: '魔方被开门关门弄乱了，你能把它变回去吗？开门、往回拨、关门。',
-        setup: "R U R'",
-        goal: 'solved',
-        moves: ['R', "R'", 'U', "U'"],
-        hint: "R U' R'",
+        kind: 'drill',
+        say: '用你的魔方：跟着屏幕摆好，再自己变回去。开门、往回拨、关门。',
+        cases: fixedDrill("R U' R'"),
+        reps: 2,
       },
       {
-        kind: 'try',
+        kind: 'drill',
         say: '这次是前面的门！前面逆时针是开门。',
-        setup: "F' U' F",
-        goal: 'solved',
-        moves: ['F', "F'", 'U', "U'"],
-        hint: "F' U F",
+        cases: fixedDrill("F' U F"),
+        reps: 2,
       },
       { kind: 'real', say: '用你的魔方做：开门 R、顶层随便拨、关门 R\'，看看底层是不是还是好的？', checklist: ['做 3 次，每次底层都没坏', '对爸爸妈妈说出：为什么底层没坏'] },
     ],
@@ -249,13 +240,11 @@ export const LESSONS: Lesson[] = [
       { kind: 'watch', say: '高手的办法：先让路。', setup: caseSetup(caseById('b3'), false), highlight: SLOT_PIECES, steps: caseById('b3').steps },
       { kind: 'talk', say: '记住三个词：让路、做事、还原。不只是魔方，很多难题都可以这样想！', setup: '' },
       {
-        kind: 'try',
-        say: '你来试试：先让路，再开门，回到门口，关门。',
-        setup: caseSetup(caseById('b3'), false),
+        kind: 'drill',
+        say: '用你的魔方试试：先让路，再开门，回到门口，关门。',
+        cases: f2lDrill(caseById('b3')),
         highlight: SLOT_PIECES,
-        goal: 'solved',
-        moves: F2L_MOVES,
-        hint: joinSteps(caseById('b3').steps),
+        reps: 2,
       },
     ],
   },
@@ -279,13 +268,11 @@ export const LESSONS: Lesson[] = [
       ...F2L_CASES.filter((c) => !c.basic).flatMap((c): Scene[] => [
         { kind: 'watch', say: `${c.emoji} ${c.name}：${c.look}`, setup: caseSetup(c, false), highlight: SLOT_PIECES, steps: c.steps },
         {
-          kind: 'try',
-          say: `你来试试「${c.name}」！`,
-          setup: caseSetup(c, false),
+          kind: 'drill',
+          say: `用你的魔方试试「${c.name}」！`,
+          cases: f2lDrill(c),
           highlight: SLOT_PIECES,
-          goal: 'solved',
-          moves: F2L_MOVES,
-          hint: joinSteps(c.steps),
+          reps: 2,
         },
       ]),
     ],

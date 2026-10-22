@@ -964,3 +964,14 @@ kbd {
     animation: none;
   }
 }
+
+.drill-count {
+  font-weight: 800;
+  color: var(--soft);
+}
+.drill-clock {
+  font-size: 64px;
+  font-weight: 900;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
