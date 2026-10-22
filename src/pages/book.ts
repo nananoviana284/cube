@@ -2,9 +2,10 @@ import { mirrorAlg } from '../content/slots';
 import { F2L_CASES, OLL_CORNERS, OLL_EDGES, PLL_CORNERS, PLL_EDGES, joinSteps, type Step } from '../content/algs';
 import { load, save } from '../store';
 import { beep, h } from '../ui/dom';
-import { topDiagram, type DiagramMode } from '../ui/diagram';
+import { invertAlg, stateFrom } from '../cube/alg';
+import { effectOf } from '../content/effect';
+import { isoDiagram, stateDiagram, type DiagramMode } from '../ui/diagram';
 import { kbd, pageHeader, parentLock, tabbar } from '../ui/components';
-import { icon } from '../ui/icons';
 import { setKeys } from '../ui/keys';
 
 export interface BookEntry {
@@ -81,7 +82,7 @@ export const nameOf = (e: BookEntry) => load().nick[e.key] || e.name;
 let group = BOOK[0].group;
 let onlyWeak = false;
 
-/** 公式本（首页）：分组看卡片——图、公式、会不会；点卡片进详情页 */
+/** 公式本（首页）：分组看一格一格的情况图；点一格进详情页 */
 export function bookPage(root: HTMLElement): () => void {
   const groups = [...new Set(BOOK.map((b) => b.group))];
 
@@ -153,31 +154,26 @@ export function bookPage(root: HTMLElement): () => void {
   function renderGrid(): void {
     const sk = load().skills;
     const list = BOOK.filter((b) => b.group === group && (!onlyWeak || sk[b.key] === 0));
-    grid.replaceChildren(
-      ...(list.length ? [] : [h('p', { class: 'muted' }, '这一组没有"不会"的，真棒！')]),
-      ...list.map((e) =>
-        h(
-          'article',
-          { class: 'book-card', tabindex: '0', role: 'link', 'aria-label': `打开${nameOf(e)}`, onclick: () => open(e), onkeydown: (ev: KeyboardEvent) => ev.key === 'Enter' && open(e) },
-          h(
-            'div',
-            { class: 'book-head' },
-            e.diagram ? topDiagram(e.alg, e.diagram) : h('div', { class: 'book-emoji', 'aria-hidden': 'true' }, icon('pair', 34)),
-            h('div', { class: 'book-meta' }, h('div', { class: 'book-name' }, nameOf(e)), h('div', { class: 'book-look' }, e.look), h('div', { class: 'book-alg' }, e.alg)),
-          ),
-          h(
-            'div',
-            { class: 'book-foot' },
-            rater(e.key, () => {
-              syncSummary();
-              if (onlyWeak) renderGrid();
-            }),
-            h('span', { class: 'look-btn' }, '打开', icon('right', 16)),
-          ),
-        ),
-      ),
-    );
+    grid.replaceChildren(...(list.length ? [] : [h('p', { class: 'muted' }, '这一组没有"不会"的，真棒！')]), ...list.map((e) => tile(e, sk[e.key])));
   }
+  /** 一格一个公式：大图直接画出它的情况和效果，下面是名字 */
+  const tile = (e: BookEntry, lv: 0 | 1 | 2 | undefined) => {
+    const level = LEVELS.find((l) => l.v === lv);
+    return h(
+      'article',
+      {
+        class: `book-tile${level ? ` ${level.cls}` : ''}`,
+        tabindex: '0',
+        role: 'link',
+        'aria-label': `打开${nameOf(e)}`,
+        onclick: () => open(e),
+        onkeydown: (ev: KeyboardEvent) => ev.key === 'Enter' && open(e),
+      },
+      casePicture(e),
+      h('div', { class: 'tile-name' }, level ? h('i', { class: 'tile-dot', title: level.label }) : null, nameOf(e)),
+      h('div', { class: 'tile-alg' }, e.alg),
+    );
+  };
 
   syncSummary();
   syncTabs();
@@ -185,6 +181,17 @@ export function bookPage(root: HTMLElement): () => void {
   setKeys({ '1': () => pickGroup(0), '2': () => pickGroup(1), '3': () => pickGroup(2), '4': () => pickGroup(3) });
   root.append(pageHeader('公式本', '每个公式做了什么、为什么、遇到不同角度怎么办', summary, parentLock('center')), tabs, h('main', null, grid), tabbar('book'));
   return () => {};
+}
+
+/**
+ * 这个公式的情况图：顶层公式画顶面，并叠上效果（打圈 = 会翻上来/拧正，箭头 = 去哪里，蓝框 = 认它要看的贴纸）；
+ * 好朋友回家画立体图，只给这对好朋友上色，虚线框是它们的家。
+ */
+export function casePicture(e: BookEntry): SVGSVGElement {
+  const s = stateFrom(invertAlg(e.alg));
+  if (!e.diagram) return isoDiagram(s, ['DFR', 'FR'], [[1, -1, 1], [1, 0, 1]]);
+  const ef = effectOf(s, e.diagram);
+  return stateDiagram(s, e.diagram, { spins: [...ef.flips, ...ef.twists], arrows: ef.moves, cues: ef.cues });
 }
 
 /** 把文字里的公式名字换成"家里的叫法（原名）" */

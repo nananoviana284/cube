@@ -129,3 +129,76 @@ function drawOverlay(svg: SVGSVGElement, ov: Overlay, boxes: Map<string, [number
     });
   }
 }
+
+/**
+ * 立体小图（看得见上、前、右三面），给好朋友回家用：
+ * 只给要看的块（和中心块）上色，其他都是灰的，一眼看出这对好朋友在哪、白色朝哪。
+ */
+export function isoDiagram(s: CubeState, show: string[], home: Vec[] = []): SVGSVGElement {
+  const ns = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(ns, 'svg');
+  svg.setAttribute('viewBox', '-3.2 -3.7 6.4 6.95');
+  svg.classList.add('diagram', 'iso');
+  const proj = (x: number, y: number, z: number) => `${((x - z) * 0.866).toFixed(3)},${((x + z) * 0.5 - y).toFixed(3)}`;
+  const want = new Set(show);
+  const homes = new Set(home.map((p) => p.join(',')));
+  const outlines: string[] = [];
+  const faces: [Face, (a: number, b: number) => [number, number, number], (i: number, j: number) => Vec][] = [
+    ['U', (a, b) => [a, 1.5, b], (i, j) => [i, 1, j]],
+    ['F', (a, b) => [a, -b, 1.5], (i, j) => [i, -j, 1]],
+    ['R', (a, b) => [1.5, -b, -a], (i, j) => [1, -j, -i]],
+  ];
+  for (const [face, at, posOf] of faces)
+    for (let i = -1; i <= 1; i++)
+      for (let j = -1; j <= 1; j++) {
+        const pos = posOf(i, j);
+        const c = s.at(pos);
+        const isCenter = pos.filter((v) => v !== 0).length === 1;
+        const col = s.colorAt(pos, face);
+        const fill = col && (isCenter || want.has(c.id)) ? FILL[col] : GREY;
+        const q = 0.46;
+        const pts = [
+          [i - q, j - q],
+          [i + q, j - q],
+          [i + q, j + q],
+          [i - q, j + q],
+        ].map(([a, b]) => proj(...at(a, b)));
+        const poly = document.createElementNS(ns, 'polygon');
+        poly.setAttribute('points', pts.join(' '));
+        poly.setAttribute('fill', fill);
+        poly.setAttribute('stroke', '#1d1f24');
+        poly.setAttribute('stroke-width', '0.07');
+        poly.setAttribute('stroke-linejoin', 'round');
+        svg.append(poly);
+        if (homes.has(pos.join(','))) outlines.push(pts.join(' '));
+      }
+  // 后面和左面看不见：把顶层这两面的贴纸平放在顶面外面一圈（和顶面图的侧边条一样）
+  for (let k = -1; k <= 1; k++)
+    for (const [face, pos, rect] of [
+      ['B', [k, 1, -1], [k - 0.42, -2.08, k + 0.42, -1.68]],
+      ['L', [-1, 1, k], [-2.08, k - 0.42, -1.68, k + 0.42]],
+    ] as [Face, Vec, number[]][]) {
+      const col = s.colorAt(pos, face);
+      if (!col || !want.has(s.at(pos).id)) continue;
+      const [a0, b0, a1, b1] = rect;
+      const poly = document.createElementNS(ns, 'polygon');
+      poly.setAttribute('points', [proj(a0, 1.5, b0), proj(a1, 1.5, b0), proj(a1, 1.5, b1), proj(a0, 1.5, b1)].join(' '));
+      poly.setAttribute('fill', FILL[col]);
+      poly.setAttribute('stroke', '#1d1f24');
+      poly.setAttribute('stroke-width', '0.07');
+      poly.setAttribute('stroke-linejoin', 'round');
+      svg.append(poly);
+    }
+  // 虚线框：好朋友要回的家
+  for (const pts of outlines) {
+    const o = document.createElementNS(ns, 'polygon');
+    o.setAttribute('points', pts);
+    o.setAttribute('fill', 'none');
+    o.setAttribute('stroke', '#1b4fb8');
+    o.setAttribute('stroke-width', '0.12');
+    o.setAttribute('stroke-dasharray', '0.22 0.14');
+    o.setAttribute('stroke-linejoin', 'round');
+    svg.append(o);
+  }
+  return svg;
+}
