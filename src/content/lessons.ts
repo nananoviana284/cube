@@ -2,6 +2,7 @@ import { invertAlg, randomScramble } from '../cube/alg';
 import { faceName as C, type CubeState } from '../cube/model';
 import { F2L_CASES, OLL_CORNERS, OLL_EDGES, PLL_CORNERS, PLL_EDGES, joinSteps, type F2LCase, type Step } from './algs';
 import { pick } from '../ui/dom';
+import { BASIC_CASES, SLOTS, SLOT_NAME, randomSlotCase, slotCase, slotPieces } from './slots';
 
 // 课程 = 一串"场景"。每节 5~8 分钟，正好是 5 岁孩子专注的长度。
 
@@ -9,6 +10,8 @@ import { pick } from '../ui/dom';
 export interface DrillCase {
   setup: string;
   solution: string;
+  /** 这一题要亮的块（不写就用场景的） */
+  highlight?: string[];
 }
 
 export type Scene =
@@ -30,10 +33,19 @@ export type Scene =
       setup?: string | (() => string);
       highlight?: string[];
       view?: 'front' | 'top';
-      options: { label: string; ok: boolean }[] | (() => { setup: string; options: { label: string; ok: boolean }[] });
+      options: { label: string; ok: boolean }[] | (() => { setup: string; highlight?: string[]; options: { label: string; ok: boolean }[] });
       rounds?: number;
     }
-  | { kind: 'real'; say: string; checklist?: string[]; parentSetup?: string };
+  | {
+      /** 真魔方任务。带 hints 时是"挑战"：先自己试，卡住按 H 一条条听提示，最后才看答案 */
+      kind: 'real';
+      say: string;
+      checklist?: string[];
+      parentSetup?: string | (() => string);
+      hints?: string[];
+      /** 看答案：从 parentSetup 的样子演示这几步 */
+      reveal?: Step[];
+    };
 
 export interface Lesson {
   id: string;
@@ -166,39 +178,104 @@ export const LESSONS: Lesson[] = [
     id: 'door',
     island: 'secret',
     emoji: '🚪',
-    title: '开门、关门',
-    goal: '明白 R U R\' 为什么不会弄乱底层',
-    minutes: 6,
+    title: '我发明了开门关门',
+    goal: '自己发现：关门时，门口的块会被送回家',
+    minutes: 8,
     parent:
-      '这是整个 F2L 的核心原理：「开门(R) → 在顶层做事(U) → 关门(R\')」。开门时底层被借走一块，关门时原样还回来，所以只有顶层被改变。孩子理解了这一点，就不需要背 F2L 公式——每个公式都是"开门-做事-关门"。',
-    secret: '开门的手，一定要关门！开门的时候，底层借走一块；关门的时候，原样还回来。所以底层不会乱，变的只有顶层。以后每一个好朋友回家的公式，都是开门、做事、关门。',
+      '这一课不先给公式，而是先让孩子猜、再用真魔方试，自己发现规律，最后才起名字。要发现的规律是：开门(R)时，门里的一对被带到顶层；在顶层做事(U)；关门(R\')时，站在门口的一对被送进家里。十字和别的家都不会坏，变的只有"门里那一对"。这就是 F2L 的全部原理：想让好朋友回家，就先让它们一起站到门口，再关门。孩子自己发现的规律，换个门、换只手也会用；背下来的公式只认一个角度。挑战时请忍住别直接说答案，卡住就让他按 H 听提示。',
+    secret: '关门的时候，站在门口的块会被送进家里。想让好朋友回家，就先让它们一起站到门口，再关门。卡住了问自己：好朋友站到门口了吗？',
     scenes: [
-      { kind: 'talk', say: '看底下的白色，全都是好的。我们来做一个魔法：开门、关门。', setup: '', highlight: ['DFR', 'DF', 'DR', 'FR', 'D'] },
+      { kind: 'talk', say: '今天你是小小发明家！我不告诉你公式，你自己来发现魔方的秘密。先看看底下，白色全都是好的。', setup: '', highlight: ['D', 'DF', 'DB', 'DR', 'DL', 'DFR', 'DFL', 'DBR', 'DBL'] },
       {
-        kind: 'watch',
-        say: '盯住亮着的方块！',
+        kind: 'quiz',
+        say: '先猜一猜：右手往上推，就是 R，底下的白色会有几块跑走？',
         setup: '',
-        highlight: ['DFR', 'DF', 'DR', 'FR', 'D'],
-        steps: [
-          { moves: 'R', say: '开门：右手往上推。底下的白色跑上去了！' },
-          { moves: 'U', say: '在顶层做事：顶层往左拨。' },
-          { moves: "R'", say: '关门：右手拉下来。咦？底层又好了，只有顶层变了！' },
+        options: [
+          { label: '一块都不会', ok: false },
+          { label: '3 块', ok: true },
+          { label: '全部都会', ok: false },
         ],
       },
-      { kind: 'talk', say: '记住这个魔法：开门的手，一定要关门。这样底层就不会乱。', setup: "R U R'" },
+      {
+        kind: 'watch',
+        say: '猜对了吗？看一看！',
+        setup: '',
+        highlight: ['DFR', 'DR', 'DBR'],
+        steps: [{ moves: 'R', say: '右边一列的 3 块白色跑上去了。门打开了！' }],
+      },
+      {
+        kind: 'quiz',
+        say: '再猜：开门 R，顶层拨一下 U，再关门 R 撇。底下会变成什么样？',
+        setup: '',
+        options: [
+          { label: '全部好好的，和原来一样', ok: false },
+          { label: '十字还在，只有右前角那一对换掉了', ok: true },
+          { label: '全乱了', ok: false },
+        ],
+      },
+      {
+        kind: 'real',
+        say: '用你复原的魔方试一试：R，U，R 撇。看看底下：十字还在吗？哪几块换掉了？',
+        checklist: ['自己做 R U R\'，不看屏幕', '说出：十字还在', '说出：右前的角块和棱块被换上去了'],
+      },
+      {
+        kind: 'watch',
+        say: '我们一起看慢动作。盯住亮着的两块！',
+        setup: '',
+        highlight: ['DFR', 'FR'],
+        steps: [
+          { moves: 'R', say: '开门：门里的一对被带到顶层。' },
+          { moves: 'U', say: '在顶层做事：它们被拨走了，门口换成了别的块。' },
+          { moves: "R'", say: '关门：站在门口的块被送进家里。十字和别的家都没坏！' },
+        ],
+      },
+      {
+        kind: 'real',
+        say: '挑战：现在亮着的这对好朋友被你送到顶层了。你能让它们回家吗？只能用 R 和 U。',
+        parentSetup: "R U R'",
+        hints: ['关门的时候，站在门口的块会被送回家。先把门打开。', '开门以后，好朋友在哪？把它们拨回门口。', "R 开门、U' 拨回门口、R' 关门。"],
+        reveal: [
+          { moves: 'R', say: '开门。' },
+          { moves: "U'", say: '把好朋友拨回门口。' },
+          { moves: "R'", say: '关门，站在门口的好朋友回家了！' },
+        ],
+        checklist: ['自己试，不看答案', '好朋友回家了', '说出：先让它们站到门口，再关门'],
+      },
+      {
+        kind: 'talk',
+        say: '你发现的秘密，高手叫它「开门、做事、关门」。关门的时候，站在门口的块会被送进家里。所以想让好朋友回家，就先让它们一起站到门口，再关门！',
+        setup: "R U R'",
+        highlight: ['DFR', 'FR'],
+      },
+      {
+        kind: 'quiz',
+        say: '魔方的前面也有一扇门。前面逆时针，F 撇，是开门。那关门应该做什么？',
+        setup: "F'",
+        options: [
+          { label: 'F（前面顺时针，转回来）', ok: true },
+          { label: "F'（再逆时针一次）", ok: false },
+          { label: 'U（拨顶层）', ok: false },
+        ],
+      },
+      {
+        kind: 'real',
+        say: '挑战二：这次好朋友是从前面的门出来的。用前面的门让它们回家！',
+        parentSetup: "F' U F",
+        hints: ['前面的门怎么打开？', "F' 开门以后，把好朋友拨回门口，再关门 F。", "F' 开门、U' 拨回门口、F 关门。"],
+        reveal: [
+          { moves: "F'", say: '前面开门。' },
+          { moves: "U'", say: '把好朋友拨回门口。' },
+          { moves: 'F', say: '前面关门，好朋友回家了！' },
+        ],
+        checklist: ['自己想到用前面的门', '好朋友回家了'],
+      },
       {
         kind: 'drill',
-        say: '用你的魔方：跟着屏幕摆好，再自己变回去。开门、往回拨、关门。',
+        say: '再练两次：跟着屏幕摆好，用你发现的秘密让好朋友回家。',
         cases: fixedDrill("R U' R'"),
+        highlight: ['DFR', 'FR'],
         reps: 2,
       },
-      {
-        kind: 'drill',
-        say: '这次是前面的门！前面逆时针是开门。',
-        cases: fixedDrill("F' U F"),
-        reps: 2,
-      },
-      { kind: 'real', say: '用你的魔方做：开门 R、顶层随便拨、关门 R\'，看看底层是不是还是好的？', checklist: ['做 3 次，每次底层都没坏', '对爸爸妈妈说出：为什么底层没坏'] },
     ],
   },
   {
@@ -261,6 +338,79 @@ export const LESSONS: Lesson[] = [
   basicLesson('key2', 'b2', '万能钥匙 2：左手碰头', '左手碰头是右手碰头的双胞胎：只是换成前面那扇门。前面开门，拨到门口，关门。'),
   basicLesson('key3', 'b3', '万能钥匙 3：右边让路', '好朋友站在门口挡住了门，就先让路：挪开，开门，好朋友走回门口，关门。'),
   basicLesson('key4', 'b4', '万能钥匙 4：前面让路', '前面的门也一样：先让路挪开，前面开门，好朋友走回门口，关门。'),
+  {
+    id: 'mirror',
+    island: 'f2l',
+    emoji: '🪞',
+    title: '照镜子：左边的家',
+    goal: '自己推出左手怎么做，不用转魔方',
+    minutes: 8,
+    parent:
+      '高手几乎不转整个魔方：好朋友的家在哪边，就开哪边的门。这一课不教左手公式，而是让孩子用"照镜子"自己推出来：右手往上推 R，镜子里是左手往上推 L\'；顶层往左拨 U，镜子里是往右拨 U\'。右边会的 4 把钥匙，照镜子就全部变成左边的，不用多背一个。最后是混着练：右边、左边、各种钥匙随机出，先说出家在哪、开哪扇门，再动手。后面两个槽（右后、左后）先只练"认出家在哪"。',
+    secret: '左边和右边是一对双胞胎：右手怎么做，左手就照镜子做。家在哪边，就开哪边的门，不用把魔方转过来。',
+    scenes: [
+      {
+        kind: 'talk',
+        say: '右手碰头你已经会了。可是这一次，好朋友的家在左边！先别转魔方。',
+        setup: () => slotCase(caseById('b1'), 'FL').setup,
+        highlight: slotPieces('FL'),
+      },
+      {
+        kind: 'real',
+        say: '挑战：不把魔方转过来，你能自己想出怎么让它们回左边的家吗？',
+        parentSetup: () => slotCase(caseById('b1'), 'FL').setup,
+        hints: [
+          '右手碰头是：开门、把好朋友拨到门口、关门。左边的门在哪里？',
+          '照镜子：右手往上推，镜子里就是左手往上推；顶层往左拨，镜子里就是往右拨。',
+          "L' 左手往上推、U' 顶层往右拨、L 左手拉下来。",
+        ],
+        reveal: slotCase(caseById('b1'), 'FL').steps.map((s, i) => ({ ...s, say: ['左手开门：左手往上推。', '顶层往右拨，好朋友走到左边门口。', '左手关门，好朋友回家！'][i] ?? s.say })),
+        checklist: ['没有把整个魔方转过来', '自己想到用左手', '说出：左边就是照镜子'],
+      },
+      {
+        kind: 'talk',
+        say: "这个办法叫照镜子：R 变成 L 撇，U 变成 U 撇。右边会的每一招，照镜子就变成左边的。",
+        setup: () => slotCase(caseById('b1'), 'FL').setup,
+        highlight: slotPieces('FL'),
+      },
+      {
+        kind: 'quiz',
+        say: "R U R' 照镜子，变成哪一个？",
+        options: [
+          { label: "L' U' L", ok: true },
+          { label: "L U L'", ok: false },
+          { label: "R' U' R", ok: false },
+        ],
+      },
+      {
+        kind: 'quiz',
+        say: "前面的门也一样。F' U' F 照镜子，变成哪一个？提示：F 撇变 F，U 撇变 U。",
+        options: [
+          { label: "F U F'", ok: true },
+          { label: "F' U' F", ok: false },
+          { label: "L' U' L", ok: false },
+        ],
+      },
+      {
+        kind: 'quiz',
+        say: '亮着的这对好朋友，家在哪里？看两个颜色，再找这两个颜色的中心块。后面看不见的，用排除法想一想。',
+        rounds: 4,
+        options: () => {
+          const k = randomSlotCase();
+          return { setup: k.setup, highlight: [...slotPieces(k.slot), 'F', 'R', 'B', 'L'], options: SLOTS.map((sl) => ({ label: `${SLOT_NAME[sl]}`, ok: sl === k.slot })) };
+        },
+      },
+      {
+        kind: 'drill',
+        say: '混着练！每次的钥匙和家都不一样，有的在右边，有的在左边。先说出家在哪、开哪扇门，再动手。不许把整个魔方转过来哦！',
+        cases: () => {
+          const k = randomSlotCase(BASIC_CASES, ['FR', 'FL']);
+          return { setup: k.setup, solution: k.solution, highlight: slotPieces(k.slot) };
+        },
+        reps: 4,
+      },
+    ],
+  },
   {
     id: 'tricky',
     island: 'f2l',

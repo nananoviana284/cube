@@ -811,6 +811,21 @@ button.drill-clock {
 }
 
 /* ——— 家长内容：孩子画面里默认看不见 ——— */
+.hint-list:empty {
+  display: none;
+}
+.hint-list {
+  background: var(--card);
+  border-radius: 22px;
+  padding: 12px 18px 12px 40px;
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.5;
+  color: var(--ink-2);
+}
+.hint-list li + li {
+  margin-top: 6px;
+}
 .parent-note {
   display: none;
   background: var(--parent-bg);
@@ -2627,4 +2642,14 @@ body.parent-mode #app {
   .lock.holding::after {
     transition: none;
   }
+}
+
+.book-kin {
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--ink-2);
+  margin-top: 4px;
+}
+.book-kin:empty {
+  display: none;
 }

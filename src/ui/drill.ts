@@ -81,7 +81,7 @@ export function runDrill(o: DrillOptions): Promise<DrillResult> {
   return new Promise((resolve) => {
     const showCase = () => {
       view.setAlg(c.setup);
-      view.highlight(o.highlight ?? null);
+      view.highlight(c.highlight ?? o.highlight ?? null);
       view.resetView();
       st.cover(false);
     };
@@ -112,7 +112,7 @@ export function runDrill(o: DrillOptions): Promise<DrillResult> {
       keys({});
       const ok = await followAlong(st, c.setup, '', say, o.alive, o.baseKeys, bar);
       if (!ok || !o.alive()) return;
-      view.highlight(o.highlight ?? null);
+      view.highlight(c.highlight ?? o.highlight ?? null);
       readyPhase();
     };
 
