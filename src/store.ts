@@ -30,6 +30,12 @@ export interface Data {
   nick: Record<string, string>;
   /** 每天练习分钟数 */
   dailyMinutes: number;
+  /** 是否显示家长说明 */
+  parentView: boolean;
+  /** "跟着做"每步停顿（毫秒） */
+  followPause: number;
+  /** 上次打开的课 */
+  lastLesson?: string;
 }
 
 const KEY = 'cube-coach-v1';
@@ -49,6 +55,8 @@ function defaults(): Data {
     skills: {},
     nick: {},
     dailyMinutes: 60,
+    parentView: false,
+    followPause: 2500,
   };
 }
 

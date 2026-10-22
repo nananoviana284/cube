@@ -809,3 +809,158 @@ input[type='range'] {
   border-color: var(--good);
   color: #fff;
 }
+
+/* ——— 家长内容默认隐藏 ——— */
+.parent-note {
+  display: none;
+}
+body.parent-on .parent-note {
+  display: block;
+}
+.parent-toggle {
+  background: var(--card);
+  border-radius: 14px;
+  padding: 8px 10px;
+  box-shadow: var(--shadow);
+  font-size: 20px;
+  opacity: 0.55;
+}
+.parent-toggle.on {
+  opacity: 1;
+  outline: 3px solid #9cc9ea;
+}
+.info-note {
+  background: #eef7ff;
+  border-radius: 16px;
+  padding: 12px 14px;
+  font-size: 15px;
+  line-height: 1.6;
+  color: #2c4a63;
+}
+
+/* ——— 键位 ——— */
+kbd {
+  display: inline-block;
+  font-family: ui-monospace, Menlo, monospace;
+  font-size: 0.62em;
+  font-weight: 700;
+  line-height: 1;
+  padding: 3px 6px;
+  margin-left: 8px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.12);
+  vertical-align: middle;
+}
+.back kbd {
+  display: none;
+}
+@media (pointer: fine) {
+  .back kbd {
+    display: inline-block;
+  }
+}
+.key-hints {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  color: var(--soft);
+  font-size: 15px;
+}
+.key-hints kbd {
+  margin: 0 4px 0 0;
+  font-size: 13px;
+  background: var(--card);
+  box-shadow: 0 2px 0 var(--line);
+  color: var(--ink);
+}
+.big-say {
+  font-size: 26px;
+  font-weight: 800;
+  line-height: 1.4;
+}
+.follow-move {
+  font-size: 54px;
+  font-weight: 900;
+  font-family: ui-monospace, Menlo, monospace;
+  text-align: center;
+}
+.follow-move small {
+  display: block;
+  font-family: inherit;
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--soft);
+}
+.continue {
+  background: var(--good);
+  color: #fff;
+  border-radius: 24px;
+  padding: 18px 22px;
+  font-size: 24px;
+  font-weight: 900;
+  box-shadow: 0 6px 0 #049f77;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  text-align: left;
+  margin-bottom: 16px;
+}
+.continue .e {
+  font-size: 40px;
+}
+.continue small {
+  display: block;
+  font-size: 16px;
+  font-weight: 600;
+  opacity: 0.9;
+}
+
+.option kbd.num {
+  margin: 0 12px 0 0;
+  font-size: 18px;
+  padding: 4px 9px;
+  background: var(--bg);
+}
+
+.lesson-card kbd.n {
+  margin: 0;
+  font-size: 18px;
+  padding: 0;
+}
+
+.move-tag {
+  position: absolute;
+  left: 14px;
+  top: 12px;
+  background: var(--ink);
+  color: #fff;
+  border-radius: 18px;
+  padding: 8px 16px 10px;
+  text-align: center;
+  z-index: 2;
+  pointer-events: none;
+}
+.move-tag b {
+  display: block;
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: 52px;
+  line-height: 1.05;
+}
+.move-tag small {
+  font-size: 15px;
+  opacity: 0.85;
+}
+.move-tag.pop {
+  animation: tagpop 0.25s ease-out;
+}
+@keyframes tagpop {
+  from {
+    transform: scale(1.35);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .move-tag.pop {
+    animation: none;
+  }
+}

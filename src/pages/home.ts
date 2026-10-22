@@ -1,6 +1,9 @@
 import { ISLANDS, lessonsOf } from '../content/lessons';
 import { CubeView } from '../cube/view';
 import { load, totalStars } from '../store';
+import { LESSONS } from '../content/lessons';
+import { setKeys } from '../ui/keys';
+import { speak } from '../ui/dom';
 import { h, starsText } from '../ui/dom';
 import { topbar } from '../ui/components';
 
@@ -11,6 +14,8 @@ export const GAMES = [
   { id: 'lights', emoji: '🚗', name: '车灯快认', desc: '一眼认 PLL' },
   { id: 'metro', emoji: '🐢', name: '乌龟节拍器', desc: '慢慢转，不要停' },
 ];
+
+let greeted = false;
 
 export function homePage(root: HTMLElement): () => void {
   const d = load();
@@ -23,6 +28,23 @@ export function homePage(root: HTMLElement): () => void {
       h('div', null, h('div', { class: 'hello' }, `你好，${d.kidName}！`), h('div', { class: 'sub' }, `已经收集了 ⭐ ${totalStars()} 颗星星`)),
     ),
   );
+  // 继续学习：还没拿到星星的第一课；全部有星星了就挑星星最少的
+  const d0 = load();
+  const nextLesson =
+    LESSONS.find((l) => !d0.stars[l.id]) ?? [...LESSONS].sort((a, b) => (d0.stars[a.id] ?? 0) - (d0.stars[b.id] ?? 0))[0];
+  const go = () => (location.hash = `#/lesson/${nextLesson.id}`);
+  root.append(
+    h(
+      'button',
+      { class: 'continue', onclick: go },
+      h('span', { class: 'e' }, nextLesson.emoji),
+      h('span', { style: 'flex:1' }, `继续学习：${nextLesson.title}`, h('small', null, nextLesson.goal)),
+      h('kbd', null, '空格'),
+    ),
+  );
+  setKeys({ space: go });
+  if (!greeted) speak(`你好，${d0.kidName}！按空格，继续学习。`);
+  greeted = true;
   const view = new CubeView(cubeBox, { orbit: false });
   let alive = true;
   const spin = async () => {
@@ -95,7 +117,7 @@ export function islandPage(root: HTMLElement, id: string): () => void {
         h(
           'button',
           { class: 'lesson-card', onclick: () => (location.hash = `#/lesson/${l.id}`) },
-          h('span', { class: 'n' }, String(i + 1)),
+          h('kbd', { class: 'n' }, String(i + 1)),
           h('span', { class: 'e' }, l.emoji),
           h('span', null, h('div', { class: 't' }, l.title), h('div', { class: 'g' }, `${l.goal} · 约 ${l.minutes} 分钟`)),
           h('span', { class: 's' }, starsText(d.stars[l.id] ?? 0)),
@@ -103,5 +125,8 @@ export function islandPage(root: HTMLElement, id: string): () => void {
       ),
     ),
   );
+  const ls = lessonsOf(id);
+  const open = (i: number) => () => ls[i] && (location.hash = `#/lesson/${ls[i].id}`);
+  setKeys({ esc: () => (location.hash = '#/'), ...Object.fromEntries(ls.map((_, i) => [String(i + 1), open(i)])), space: open(Math.max(0, ls.findIndex((l) => !d.stars[l.id]))) });
   return () => {};
 }

@@ -1,16 +1,45 @@
 import { CubeView, type ViewPreset } from '../cube/view';
 import { kidWords, parseAlg } from '../cube/alg';
-import { load } from '../store';
+import { load, save } from '../store';
 import { h, speak } from './dom';
 
-export function topbar(title: string, backHref: string | null, right?: Node): HTMLElement {
+/** 家长内容（.parent-note）默认隐藏，右上角按钮切换，记住选择 */
+export function syncParentView(): void {
+  document.body.classList.toggle('parent-on', load().parentView);
+}
+
+export function parentToggle(): HTMLElement {
+  const b = h('button', { class: 'parent-toggle', title: '家长说明（孩子不用看）' }, '👨‍👩‍👦');
+  const sync = () => b.classList.toggle('on', load().parentView);
+  b.onclick = () => {
+    save((d) => (d.parentView = !d.parentView));
+    syncParentView();
+    sync();
+  };
+  sync();
+  return b;
+}
+
+export function topbar(title: string, backHref: string | null, right?: Node, withParent = true): HTMLElement {
+  syncParentView();
   return h(
     'div',
     { class: 'topbar' },
-    backHref ? h('button', { class: 'back', onclick: () => (location.hash = backHref), 'aria-label': '返回' }, '⬅') : null,
+    backHref ? h('button', { class: 'back', onclick: () => (location.hash = backHref), 'aria-label': '返回' }, '⬅', h('kbd', null, 'Esc')) : null,
     h('h1', null, title),
     right ?? null,
+    withParent ? parentToggle() : null,
   );
+}
+
+/** 底部键位提示，例如 [['空格','继续'],['←','再看']] */
+export function keyHints(items: [string, string][]): HTMLElement {
+  return h('div', { class: 'key-hints' }, ...items.map(([k, t]) => h('span', null, h('kbd', null, k), t)));
+}
+
+/** 大按钮上带键位小标签 */
+export function keyBtn(cls: string, label: string, key: string, onclick: () => void): HTMLButtonElement {
+  return h('button', { class: cls, onclick }, label, h('kbd', null, key)) as HTMLButtonElement;
 }
 
 export interface Stage {
@@ -26,8 +55,20 @@ export function stage(preset: ViewPreset = 'front', orbit = true): Stage {
   const view = new CubeView(el, { preset, orbit });
   view.speedMs = load().speed;
   const badge = h('div', { class: 'stage-badge', style: 'display:none' });
+  // 每转一步，在魔方旁边大字显示指令和口令，帮孩子把字母和动作对上
+  const moveTag = h('div', { class: 'move-tag', hidden: true });
+  view.onMove = (t) => {
+    moveTag.hidden = !t;
+    if (t) {
+      moveTag.replaceChildren(h('b', null, t), h('small', null, kidWords(t)));
+      moveTag.classList.remove('pop');
+      void moveTag.offsetWidth;
+      moveTag.classList.add('pop');
+    }
+  };
   const coverEl = h('div', { class: 'stage-cover', style: 'display:none' });
   el.append(
+    moveTag,
     badge,
     coverEl,
     h(
@@ -60,9 +101,14 @@ export function bubble(text: string, who = '🧑‍🏫'): HTMLElement {
 
 export function movePad(moves: string[], onMove: (m: string) => void): { el: HTMLElement; mark: (m: string | null) => void } {
   const buttons = new Map<string, HTMLElement>();
+  // 孩子每转一下也念出来，听多了字母和动作就连在一起了
+  const press = (m: string) => {
+    speak(m);
+    onMove(m);
+  };
   const el = h('div', { class: 'pad' });
   for (const m of moves) {
-    const b = h('button', { class: 'move', onclick: () => onMove(m) }, h('b', null, m), h('small', null, kidWords(m)));
+    const b = h('button', { class: 'move', onclick: () => press(m) }, h('b', null, m), h('small', null, kidWords(m)));
     buttons.set(m, b);
     el.append(b);
   }
@@ -80,7 +126,7 @@ export function movePad(moves: string[], onMove: (m: string) => void): { el: HTM
     const b = buttons.get(token)!;
     b.classList.add('pressed');
     setTimeout(() => b.classList.remove('pressed'), 150);
-    onMove(token);
+    press(token);
   };
   document.addEventListener('keydown', onKey);
   el.append(h('div', { class: 'keys-tip' }, '⌨️ 电脑键盘：按 R 就是 R，Shift+R 就是 R\'，Alt+U 就是 U2'));
@@ -107,15 +153,17 @@ export function algView(alg: string): { el: HTMLElement; at: (i: number) => void
   };
 }
 
-/** 逐个转动播放：先亮箭头，再转 */
-export async function playWithArrows(view: CubeView, alg: string, onIndex?: (i: number) => void, arrowMs = 420): Promise<void> {
+/** 逐个转动播放：先亮箭头、显示并念出指令（如"R 撇"），再转 */
+export async function playWithArrows(view: CubeView, alg: string, onIndex?: (i: number) => void, arrowMs = 420, voice = true): Promise<void> {
   const moves = parseAlg(alg);
   for (let i = 0; i < moves.length; i++) {
+    const t = moves[i].text;
     onIndex?.(i);
-    view.showArrow(moves[i].text);
-    await wait(arrowMs);
+    view.showArrow(t);
+    view.onMove?.(t);
+    await Promise.all([wait(arrowMs), voice ? speak(t) : null]);
     view.showArrow(null);
-    await view.play(moves[i].text);
+    await view.play(t);
   }
   onIndex?.(moves.length);
 }

@@ -3,8 +3,9 @@ import { F2L_CASES, PLL_CORNERS, PLL_EDGES, joinSteps } from '../content/algs';
 import { partnerOf } from '../content/lessons';
 import { load, save } from '../store';
 import { beep, celebrate, h, pick, speak, stopSpeak } from '../ui/dom';
-import { bubble, movePad, playWithArrows, stage, topbar, wait } from '../ui/components';
+import { bubble, keyHints, movePad, playWithArrows, stage, topbar, wait } from '../ui/components';
 import { GAMES } from './home';
+import { setKeys } from '../ui/keys';
 import { rater, withNicks } from './book';
 
 function bestLine(id: string, text: (v: number) => string): HTMLElement {
@@ -28,7 +29,7 @@ function trackGame(root: HTMLElement): () => void {
   let alive = true;
   const info = h('div', { class: 'step-say' });
   const side = h('div', { class: 'side' });
-  const startBtn = h('button', { class: 'btn green' }, '开始 ▶');
+  const startBtn = h('button', { class: 'btn green' }, '开始 ▶', h('kbd', null, '空格'));
   side.append(
     bubble('一个方块会闪一下，记住它！魔方转几下以后，你要点出它跑到哪里去了。'),
     info,
@@ -89,6 +90,8 @@ function trackGame(root: HTMLElement): () => void {
     });
   };
   startBtn.onclick = round;
+  setKeys({ space: () => startBtn.style.display !== 'none' && round(), esc: () => (location.hash = '#/') });
+  speak('按空格开始');
   return () => {
     alive = false;
     view.dispose();
@@ -104,7 +107,7 @@ function friendGame(root: HTMLElement): () => void {
   let t0 = 0;
   let wrong = 0;
   const info = h('div', { class: 'step-say' }, `找 ${ROUNDS} 对好朋友，看看要几秒！`);
-  const startBtn = h('button', { class: 'btn green' }, '开始 ▶');
+  const startBtn = h('button', { class: 'btn green' }, '开始 ▶', h('kbd', null, '空格'));
   const side = h('div', { class: 'side' });
   side.append(
     bubble('亮着的是一个白色角块。它去掉白色，剩下的两个颜色就是好朋友棱块。快点出来！'),
@@ -149,6 +152,7 @@ function friendGame(root: HTMLElement): () => void {
     info.textContent = `0 / ${ROUNDS}`;
     ask();
   };
+  setKeys({ space: () => startBtn.style.display !== 'none' && startBtn.click(), esc: () => (location.hash = '#/') });
   return () => view.dispose();
 }
 
@@ -196,7 +200,7 @@ function f2lGame(root: HTMLElement): () => void {
       newCase();
     }
   });
-  const hintBtn = h('button', { class: 'btn ghost' }, '💡 看答案');
+  const hintBtn = h('button', { class: 'btn ghost' }, '💡 看答案', h('kbd', null, 'H'));
   hintBtn.onclick = async () => {
     if (hinting) return;
     hinting = true;
@@ -220,11 +224,12 @@ function f2lGame(root: HTMLElement): () => void {
     info,
     pad.el,
     rateBox,
-    h('div', { class: 'btn-row' }, hintBtn, h('button', { class: 'btn ghost', onclick: () => view.setAlg(setup) }, '🔁 重来'), h('button', { class: 'btn ghost', onclick: newCase }, '⏭ 换一个')),
+    h('div', { class: 'btn-row' }, hintBtn, h('button', { class: 'btn ghost', onclick: () => view.setAlg(setup) }, '🔁 重来', h('kbd', null, '⌫')), h('button', { class: 'btn ghost', onclick: newCase }, '⏭ 换一个', h('kbd', null, '→'))),
     modeBtn,
   );
   root.append(topbar('🌳 好朋友回家练习场', '#/'), h('div', { class: 'player' }, st.el, side));
   newCase();
+  setKeys({ hint: () => hintBtn.click(), back: () => view.setAlg(setup), right: newCase, esc: () => (location.hash = '#/') });
   return () => view.dispose();
 }
 
@@ -238,7 +243,7 @@ function lightsGame(root: HTMLElement): () => void {
   let t0 = 0;
   const info = h('div', { class: 'step-say' }, '转动魔方看 4 个侧面，判断车灯。');
   const box = h('div', { class: 'options' });
-  const startBtn = h('button', { class: 'btn green' }, '开始 ▶');
+  const startBtn = h('button', { class: 'btn green' }, '开始 ▶', h('kbd', null, '空格'));
   const ask = () => {
     const kind = pick(['T', 'Y', 'none'] as const);
     const alg = kind === 'none' ? pick(PLL_EDGES).alg : PLL_CORNERS.find((c) => c.id === kind)!.alg;
@@ -249,9 +254,11 @@ function lightsGame(root: HTMLElement): () => void {
       ['Y', '🔀 没有车灯'],
       ['none', '✅ 四面都有车灯'],
     ];
+    const choose = (i: number) => (box.children[i] as HTMLElement | undefined)?.click();
+    setKeys({ '1': () => choose(0), '2': () => choose(1), '3': () => choose(2), esc: () => (location.hash = '#/') });
     box.replaceChildren(
-      ...opts.map(([k, label]) => {
-        const b = h('button', { class: 'option' }, label);
+      ...opts.map(([k, label], i) => {
+        const b = h('button', { class: 'option' }, h('kbd', { class: 'num' }, String(i + 1)), label);
         b.onclick = () => {
           if (k === kind) {
             beep('good');
@@ -263,6 +270,7 @@ function lightsGame(root: HTMLElement): () => void {
               info.textContent = `⏱ ${(ms / 1000).toFixed(1)} 秒${wrong ? `（错 ${wrong} 次，每次 +3 秒）` : ''}`;
               box.replaceChildren();
               startBtn.style.display = '';
+              setKeys({ space: () => startBtn.click(), esc: () => (location.hash = '#/') });
             } else {
               info.textContent = `✅ ${r} / ${ROUNDS}`;
               ask();
@@ -284,6 +292,7 @@ function lightsGame(root: HTMLElement): () => void {
     startBtn.style.display = 'none';
     ask();
   };
+  setKeys({ space: () => startBtn.click(), esc: () => (location.hash = '#/') });
   root.append(
     topbar('🚗 车灯快认', '#/', bestLine('lights', (v) => `${(v / 1000).toFixed(1)} 秒`)),
     h(
@@ -325,7 +334,7 @@ function metroGame(root: HTMLElement): () => void {
     dot.classList.add('beat');
     setTimeout(() => dot.classList.remove('beat'), 90);
   };
-  const startBtn = h('button', { class: 'btn green' }, '开始 ▶');
+  const startBtn = h('button', { class: 'btn green' }, '开始 ▶', h('kbd', null, '空格'));
   const stop = () => {
     clearInterval(timer);
     timer = 0;
@@ -338,6 +347,11 @@ function metroGame(root: HTMLElement): () => void {
     startBtn.textContent = '停 ⏸';
     speak('听节拍，一拍转一下，不要停！');
   };
+  const nudge = (d: number) => {
+    slider.value = String(Math.min(150, Math.max(30, bpm + d)));
+    slider.dispatchEvent(new Event('input'));
+  };
+  setKeys({ space: () => startBtn.click(), left: () => nudge(-5), right: () => nudge(5), esc: () => (location.hash = '#/') });
   slider.oninput = () => {
     bpm = Number(slider.value);
     sync();
@@ -354,6 +368,7 @@ function metroGame(root: HTMLElement): () => void {
     h('div', { class: 'stats' }, label, counter),
     h('div', { style: 'margin:16px 0' }, slider),
     h('div', { class: 'btn-row' }, startBtn),
+    keyHints([['空格', '开始 / 停'], ['← →', '慢一点 / 快一点'], ['Esc', '回首页']]),
     h(
       'div',
       { class: 'parent-note', style: 'margin-top:16px' },
