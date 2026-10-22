@@ -1,6 +1,7 @@
 import { invertAlg, parseAlg, randomScramble } from '../cube/alg';
 import { h } from '../ui/dom';
 import { algView, movePad, playWithArrows, stage, topbar } from '../ui/components';
+import { setKeys } from '../ui/keys';
 
 /** 自由魔方：家长输入任何公式看动画、摆情况 */
 export function labPage(root: HTMLElement): () => void {
@@ -24,8 +25,9 @@ export function labPage(root: HTMLElement): () => void {
     await playWithArrows(view, alg, av.at);
   };
   const pad = movePad(['R', "R'", 'L', "L'", 'U', "U'", 'D', "D'", 'F', "F'", 'B', "B'", 'M', "M'", 'y', "y'"], (m) => view.play(m));
+  setKeys({ esc: () => (location.hash = '#/parent') });
   root.append(
-    topbar('🧪 自由魔方', '#/'),
+    topbar('自由魔方', '#/parent'),
     h(
       'div',
       { class: 'player' },
@@ -38,8 +40,8 @@ export function labPage(root: HTMLElement): () => void {
         h(
           'div',
           { class: 'btn-row' },
-          h('button', { class: 'btn blue', onclick: () => run(true) }, '▶ 看它解决什么'),
-          h('button', { class: 'btn ghost', onclick: () => run(false) }, '▶ 从当前做'),
+          h('button', { class: 'btn blue', onclick: () => run(true) }, '看它解决什么'),
+          h('button', { class: 'btn ghost', onclick: () => run(false) }, '从当前做'),
         ),
         avBox,
         h(

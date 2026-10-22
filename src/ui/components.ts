@@ -2,44 +2,169 @@ import { CubeView, type ViewPreset } from '../cube/view';
 import { kidWords, parseAlg } from '../cube/alg';
 import { load, save } from '../store';
 import { h, speak } from './dom';
+import { icon, type IconName } from './icons';
 
-/** 家长内容（.parent-note）默认隐藏，右上角按钮切换，记住选择 */
+/** 家长内容（.parent-note）默认隐藏，长按右上角的锁切换，记住选择 */
 export function syncParentView(): void {
   document.body.classList.toggle('parent-on', load().parentView);
 }
 
-export function parentToggle(): HTMLElement {
-  const b = h('button', { class: 'parent-toggle', title: '家长说明（孩子不用看）' }, '👨‍👩‍👦');
-  const sync = () => b.classList.toggle('on', load().parentView);
-  b.onclick = () => {
-    save((d) => (d.parentView = !d.parentView));
-    syncParentView();
-    sync();
+const HOLD_MS = 2000;
+
+/**
+ * 家长锁：孩子随手点不会进去，按住 2 秒才生效。
+ * mode 'notes' 在当前页显示 / 收起家长说明；'center' 进家长中心。
+ */
+export function parentLock(mode: 'notes' | 'center' = 'notes'): HTMLElement {
+  const label = mode === 'center' ? '家长中心（按住 2 秒）' : '家长说明（按住 2 秒）';
+  const b = h('button', { class: 'lock', type: 'button', 'aria-label': label, title: label }, icon('lock', 20), h('span', { class: 'lock-tip' }, '按住 2 秒'));
+  const sync = () => b.classList.toggle('on', mode === 'notes' && load().parentView);
+  let timer = 0;
+  const cancel = () => {
+    clearTimeout(timer);
+    b.classList.remove('holding');
   };
+  b.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    b.classList.add('holding');
+    timer = window.setTimeout(() => {
+      cancel();
+      if (mode === 'center') {
+        location.hash = '#/parent';
+        return;
+      }
+      save((d) => (d.parentView = !d.parentView));
+      syncParentView();
+      sync();
+    }, HOLD_MS);
+  });
+  for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) b.addEventListener(ev, cancel);
+  // 只点一下：提示要按住
+  b.addEventListener('click', () => {
+    b.classList.add('hint');
+    setTimeout(() => b.classList.remove('hint'), 1500);
+  });
+  b.addEventListener('contextmenu', (e) => e.preventDefault());
   sync();
   return b;
 }
 
-export function topbar(title: string, backHref: string | null, right?: Node, withParent = true): HTMLElement {
+export interface HeaderOptions {
+  title: string;
+  sub?: string;
+  /** 左上角 ✕ 去哪（Esc 同样） */
+  exitHref: string | null;
+  right?: Node;
+  /** 标题下面的东西，比如课程进度条 */
+  below?: Node;
+  withParent?: boolean;
+}
+
+/** 活动页顶栏：✕ 退出 · 标题（+进度）· 右侧信息 · 家长锁。位置在所有活动页都一样 */
+export function activityHeader(o: HeaderOptions): HTMLElement {
   syncParentView();
   return h(
-    'div',
-    { class: 'topbar' },
-    backHref ? h('button', { class: 'back', onclick: () => (location.hash = backHref), 'aria-label': '返回' }, '⬅', h('kbd', null, 'Esc')) : null,
-    h('h1', null, title),
-    right ?? null,
-    withParent ? parentToggle() : null,
+    'header',
+    { class: 'act-head' },
+    o.exitHref ? h('button', { class: 'exit', type: 'button', onclick: () => (location.hash = o.exitHref!), 'aria-label': '退出', title: '退出（Esc）' }, icon('close', 24)) : null,
+    h('div', { class: 'act-title' }, h('div', { class: 'act-title-row' }, h('h1', null, o.title), o.sub ? h('span', { class: 'act-sub' }, o.sub) : null), o.below ?? null),
+    o.right ?? null,
+    o.withParent === false ? null : parentLock('notes'),
   );
 }
 
-/** 底部键位提示，例如 [['空格','继续'],['←','再看']] */
-export function keyHints(items: [string, string][]): HTMLElement {
-  return h('div', { class: 'key-hints' }, ...items.map(([k, t]) => h('span', null, h('kbd', null, k), t)));
+export function topbar(title: string, backHref: string | null, right?: Node, withParent = true): HTMLElement {
+  return activityHeader({ title, exitHref: backHref, right, withParent });
 }
 
-/** 大按钮上带键位小标签 */
-export function keyBtn(cls: string, label: string, key: string, onclick: () => void): HTMLButtonElement {
-  return h('button', { class: cls, onclick }, label, h('kbd', null, key)) as HTMLButtonElement;
+/** 一级页面（首页、小游戏、计时器、公式本）的标题 */
+export function pageHeader(title: string, sub?: string, ...right: Node[]): HTMLElement {
+  return h('header', { class: 'page-head' }, h('div', { class: 'page-title' }, h('h1', null, title), sub ? h('div', { class: 'page-sub' }, sub) : null), ...right);
+}
+
+export type Tab = 'home' | 'games' | 'timer' | 'book';
+const TABS: [Tab, string, IconName, string][] = [
+  ['home', '闯关', 'map', '#/'],
+  ['games', '小游戏', 'game', '#/games'],
+  ['timer', '计时器', 'timer', '#/timer'],
+  ['book', '公式本', 'book', '#/book'],
+];
+
+/** 底部页签：电脑上是居中的一条，手机上贴底 */
+export function tabbar(active: Tab): HTMLElement {
+  return h(
+    'nav',
+    { class: 'tabbar', 'aria-label': '主导航' },
+    ...TABS.map(([id, label, ic, href]) =>
+      h('a', { href, class: id === active ? 'tab on' : 'tab', 'aria-current': id === active ? 'page' : undefined }, h('span', { class: 'tab-ic' }, icon(ic, 22)), h('span', null, label)),
+    ),
+  );
+}
+
+/** 课程 / 练习的分段进度条 */
+export function progressBar(total: number): { el: HTMLElement; set: (i: number) => void } {
+  const el = h('div', { class: 'segs', role: 'progressbar', 'aria-valuemin': '1', 'aria-valuemax': String(total) }, ...Array.from({ length: total }, () => h('span')));
+  return {
+    el,
+    set(i) {
+      el.setAttribute('aria-valuenow', String(i + 1));
+      el.setAttribute('aria-label', `第 ${i + 1} 步，共 ${total} 步`);
+      [...el.children].forEach((s, j) => {
+        s.classList.toggle('done', j < i);
+        s.classList.toggle('on', j === i);
+      });
+    },
+  };
+}
+
+/** 键帽：只在有键盘的设备上显示（CSS 里触屏隐藏） */
+export function kbd(key: string): HTMLElement {
+  return h('kbd', null, key);
+}
+
+/** 底部键位提示已经改成按钮上的键帽；保留这个函数给还没有按钮的键 */
+export function keyHints(items: [string, string][]): HTMLElement {
+  return h('div', { class: 'key-hints' }, ...items.map(([k, t]) => h('span', null, kbd(k), t)));
+}
+
+/** 大按钮上带键位小标签。cls：'btn green'（主按钮）/ 'btn blue'（真魔方）/ 'btn ghost'（次要） */
+export function keyBtn(cls: string, label: string, key: string, onclick: () => void, ic?: IconName): HTMLButtonElement {
+  return h('button', { class: cls, type: 'button', onclick }, ic ? icon(ic, 22) : null, h('span', { class: 'lbl' }, label), key ? kbd(key) : null) as HTMLButtonElement;
+}
+
+export interface Action {
+  label: string;
+  key?: string;
+  kind?: 'green' | 'blue' | 'ghost';
+  icon?: IconName;
+  onclick: () => void;
+}
+
+export interface ActionBar {
+  el: HTMLElement;
+  /** 左边固定"上一步"，右边是其它按钮；绿色主按钮放最后，永远在右下角 */
+  set(o: { back?: () => void; items?: Action[]; note?: string }): void;
+  clear(): void;
+}
+
+/** 行动条：位置固定。电脑上是一整条；手机上贴底，主按钮整行宽 */
+export function actionBar(): ActionBar {
+  const el = h('footer', { class: 'actionbar' });
+  return {
+    el,
+    set({ back, items = [], note }) {
+      el.replaceChildren(
+        ...(back ? [h('button', { class: 'btn ghost ab-back', type: 'button', onclick: back, 'aria-label': '上一步' }, icon('left', 22), h('span', { class: 'lbl' }, '上一步'), kbd('←'))] : []),
+        h('div', { class: 'ab-spacer' }, note ? h('span', { class: 'ab-note' }, note) : null),
+        ...items.map((a) => keyBtn(`btn ${a.kind ?? 'ghost'} ab-${a.kind ?? 'ghost'}`, a.label, a.key ?? '', a.onclick, a.icon)),
+      );
+      el.hidden = !back && !items.length && !note;
+    },
+    clear() {
+      el.replaceChildren();
+      el.hidden = true;
+    },
+  };
 }
 
 export interface Stage {
@@ -49,14 +174,14 @@ export interface Stage {
   cover: (on: boolean, text?: string) => void;
 }
 
-/** 3D 魔方舞台，带"摆正视角"按钮 */
+/** 3D 魔方舞台，带"摆正""看顶面"按钮和指令牌 */
 export function stage(preset: ViewPreset = 'front', orbit = true): Stage {
   const el = h('div', { class: 'stage' });
   const view = new CubeView(el, { preset, orbit });
   view.speedMs = load().speed;
   const badge = h('div', { class: 'stage-badge', style: 'display:none' });
   // 每转一步，在魔方旁边大字显示指令和口令，帮孩子把字母和动作对上
-  const moveTag = h('div', { class: 'move-tag', hidden: true });
+  const moveTag = h('div', { class: 'move-tag', hidden: true, 'aria-live': 'polite' });
   view.onMove = (t) => {
     moveTag.hidden = !t;
     if (t) {
@@ -66,37 +191,71 @@ export function stage(preset: ViewPreset = 'front', orbit = true): Stage {
       moveTag.classList.add('pop');
     }
   };
-  const coverEl = h('div', { class: 'stage-cover', style: 'display:none' });
+  const coverText = h('div', { class: 'cover-text' });
+  const coverEl = h('div', { class: 'stage-cover', hidden: true }, icon('cube', 72), coverText);
   el.append(
     moveTag,
     badge,
     coverEl,
+    ...(orbit ? [h('div', { class: 'stage-hint' }, icon('hand', 18), h('span', { class: 'hint-touch' }, '手指拖动可以转着看'), h('span', { class: 'hint-mouse' }, '鼠标拖动可以转着看'))] : []),
     h(
       'div',
       { class: 'stage-tools' },
-      h('button', { onclick: () => view.resetView(), title: '摆正' }, '🎯'),
-      h('button', { onclick: () => view.setPreset('top'), title: '看顶面' }, '⬆️'),
+      h('button', { type: 'button', onclick: () => view.resetView(), 'aria-label': '摆正', title: '摆正' }, icon('target', 22)),
+      h('button', { type: 'button', onclick: () => view.setPreset('top'), 'aria-label': '看顶面', title: '看顶面' }, icon('topView', 22)),
     ),
   );
   return {
     el,
     view,
     badge,
-    cover(on, text = '🙈') {
-      coverEl.style.display = on ? 'grid' : 'none';
-      coverEl.textContent = text;
+    cover(on, text = '看你手里的魔方') {
+      coverEl.hidden = !on;
+      coverText.textContent = text;
     },
   };
 }
 
-export function bubble(text: string, who = '🧑‍🏫'): HTMLElement {
-  return h(
+function avatar(): HTMLElement {
+  const box = h('span', { class: 'avatar' });
+  box.innerHTML =
+    '<svg viewBox="0 0 52 52" aria-hidden="true"><rect width="52" height="52" rx="16" fill="#FFC928"/><circle cx="18" cy="22" r="3.5" fill="#1E2240"/><circle cx="34" cy="22" r="3.5" fill="#1E2240"/><path d="M17 32q9 8 18 0" stroke="#1E2240" stroke-width="3.5" stroke-linecap="round" fill="none"/></svg>';
+  return box;
+}
+
+export interface Coach {
+  el: HTMLElement;
+  set: (text: string, tone?: 'normal' | 'good' | 'retry') => void;
+}
+
+/** 教练卡：一句大字 + 喇叭（V 再听） */
+export function coach(text: string, opts: { secret?: boolean; big?: boolean } = {}): Coach {
+  let current = text;
+  const txt = h('p', { class: 'coach-text', 'aria-live': 'polite' }, text);
+  const el = h(
     'div',
-    { class: 'bubble' },
-    h('div', { class: 'who' }, who),
-    h('div', { class: 'txt' }, text),
-    h('button', { class: 'say', onclick: () => speak(text, true), 'aria-label': '读给我听' }, '🔊'),
+    { class: `coach${opts.secret ? ' secret' : ''}${opts.big === false ? ' small' : ''}` },
+    opts.secret ? h('span', { class: 'avatar key' }, icon('key', 26)) : avatar(),
+    txt,
+    h('button', { class: 'say', type: 'button', onclick: () => speak(current, true), 'aria-label': '再听一遍' }, icon('speaker', 24), kbd('V')),
   );
+  return {
+    el,
+    set(t, tone = 'normal') {
+      current = t;
+      txt.textContent = t;
+      txt.dataset.tone = tone;
+    },
+  };
+}
+
+/** 一排星星图标（拿到的是黄色） */
+export function starRow(n: number, max = 3, size = 16): HTMLElement {
+  return h('span', { class: 'star-row', 'aria-label': `${n} 颗星` }, ...Array.from({ length: max }, (_, i) => h('span', { class: i < n ? 'star on' : 'star' }, icon('star', size))));
+}
+
+export function bubble(text: string): HTMLElement {
+  return coach(text, { big: false }).el;
 }
 
 export function movePad(moves: string[], onMove: (m: string) => void): { el: HTMLElement; mark: (m: string | null) => void } {
@@ -108,7 +267,7 @@ export function movePad(moves: string[], onMove: (m: string) => void): { el: HTM
   };
   const el = h('div', { class: 'pad' });
   for (const m of moves) {
-    const b = h('button', { class: 'move', onclick: () => press(m) }, h('b', null, m), h('small', null, kidWords(m)));
+    const b = h('button', { class: 'move', type: 'button', onclick: () => press(m) }, h('b', null, m), h('small', null, kidWords(m)));
     buttons.set(m, b);
     el.append(b);
   }
@@ -129,7 +288,7 @@ export function movePad(moves: string[], onMove: (m: string) => void): { el: HTM
     press(token);
   };
   document.addEventListener('keydown', onKey);
-  el.append(h('div', { class: 'keys-tip' }, '⌨️ 电脑键盘：按 R 就是 R，Shift+R 就是 R\'，Alt+U 就是 U2'));
+  el.append(h('div', { class: 'keys-tip' }, '电脑键盘：按 R 就是 R，Shift+R 就是 R\'，Alt+U 就是 U2'));
   return {
     el,
     mark(m) {

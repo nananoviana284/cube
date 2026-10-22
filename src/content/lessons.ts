@@ -339,8 +339,8 @@ export const LESSONS: Lesson[] = [
         kind: 'quiz',
         say: '哪种更快？',
         options: [
-          { label: '🐢 慢慢转，一直不停', ok: true },
-          { label: '🐇 很快地转，然后停下来找', ok: false },
+          { label: '慢慢转，一直不停', ok: true },
+          { label: '很快地转，然后停下来找', ok: false },
         ],
       },
       { kind: 'real', say: '去玩「跟踪小侦探」和「乌龟节拍器」吧！', checklist: [] },
@@ -502,9 +502,9 @@ export const LESSONS: Lesson[] = [
           return {
             setup,
             options: [
-              { label: '🚦 一面有车灯', ok: c?.id === 'T' },
-              { label: '🔀 没有车灯', ok: c?.id === 'Y' },
-              { label: '✅ 四面都有车灯', ok: !c },
+              { label: '一面有车灯', ok: c?.id === 'T' },
+              { label: '没有车灯', ok: c?.id === 'Y' },
+              { label: '四面都有车灯', ok: !c },
             ],
           };
         },

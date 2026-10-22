@@ -4,13 +4,13 @@ import type { DrillCase } from '../content/lessons';
 import { load } from '../store';
 import { beep, celebrate, h, speak } from './dom';
 import { setKeys, type KeyMap } from './keys';
-import { keyBtn, keyHints, playWithArrows, wait, type Stage } from './components';
+import { playWithArrows, wait, type ActionBar, type Stage } from './components';
 
 /**
  * 跟着做：每一步亮箭头、大字显示并念出指令、停一会儿再转，孩子用自己的魔方同步做。
  * 空格可以不等停顿直接下一步。alive() 变 false 时停下并返回 false。
  */
-export async function followAlong(st: Stage, alg: string, start: string, box: HTMLElement, alive: () => boolean, extraKeys: KeyMap = {}): Promise<boolean> {
+export async function followAlong(st: Stage, alg: string, start: string, box: HTMLElement, alive: () => boolean, extraKeys: KeyMap = {}, bar?: ActionBar): Promise<boolean> {
   const { view } = st;
   const moves = parseAlg(alg).map((m) => m.text);
   view.setAlg(start);
@@ -18,6 +18,7 @@ export async function followAlong(st: Stage, alg: string, start: string, box: HT
   st.cover(false);
   let skip: (() => void) | null = null;
   setKeys({ ...extraKeys, space: () => skip?.(), right: () => skip?.() });
+  bar?.set({ items: [{ label: '我转好了', key: '空格', kind: 'green', icon: 'check', onclick: () => skip?.() }] });
   for (let i = 0; i < moves.length; i++) {
     if (!alive()) return false;
     const m = moves[i];
@@ -49,6 +50,8 @@ export interface DrillResult {
 export interface DrillOptions {
   st: Stage;
   box: HTMLElement;
+  /** 按钮都放在底部行动条里 */
+  bar: ActionBar;
   /** 第 rep 次的题 */
   next: (rep: number) => DrillCase;
   reps: number;
@@ -68,7 +71,7 @@ const fmt = (ms: number) => (ms / 1000).toFixed(1);
  * 没成功就看一遍、跟着做一遍，再来。
  */
 export function runDrill(o: DrillOptions): Promise<DrillResult> {
-  const { st, box } = o;
+  const { st, box, bar } = o;
   const { view } = st;
   const result: DrillResult = { times: [], fails: 0 };
   let rep = 0;
@@ -91,10 +94,14 @@ export function runDrill(o: DrillOptions): Promise<DrillResult> {
       box.replaceChildren(
         h('div', { class: 'drill-count' }, `第 ${rep + 1} / ${o.reps} 次`),
         h('div', { class: 'step-say' }, tip),
-        h('div', { class: 'btn-row' }, keyBtn('btn blue', '🧊 跟我摆', '2', followSetup), keyBtn('btn green', '摆好了 👌', '空格', readyPhase)),
-        keyHints([['2', '一步步带你摆'], ['空格', '摆好了']]),
         h('div', { class: 'parent-note' }, '摆法：从复原的魔方做 ', h('span', { class: 'alg' }, c.setup), '。答案：', h('span', { class: 'alg' }, c.solution)),
       );
+      bar.set({
+        items: [
+          { label: '跟我摆', key: '2', kind: 'blue', icon: 'cube', onclick: followSetup },
+          { label: '摆好了', key: '空格', kind: 'green', icon: 'check', onclick: readyPhase },
+        ],
+      });
       speak(rep === 0 ? `${tip}按 2，我带你摆。` : `第 ${rep + 1} 次。按 2，我带你摆。`);
       keys({ space: readyPhase, '2': followSetup });
     };
@@ -103,7 +110,7 @@ export function runDrill(o: DrillOptions): Promise<DrillResult> {
       const say = h('div', { class: 'step-say' });
       box.replaceChildren(say);
       keys({});
-      const ok = await followAlong(st, c.setup, '', say, o.alive, o.baseKeys);
+      const ok = await followAlong(st, c.setup, '', say, o.alive, o.baseKeys, bar);
       if (!ok || !o.alive()) return;
       view.highlight(o.highlight ?? null);
       readyPhase();
@@ -115,9 +122,9 @@ export function runDrill(o: DrillOptions): Promise<DrillResult> {
       showCase();
       box.replaceChildren(
         h('div', { class: 'drill-count' }, `第 ${rep + 1} / ${o.reps} 次`),
-        h('div', { class: 'step-say big-say' }, '看一看，想好怎么做。准备好了按空格，开始计时！'),
-        h('div', { class: 'btn-row' }, keyBtn('btn green', '开始 ⏱', '空格', runPhase)),
+        h('div', { class: 'step-say big-say' }, '看一看，想好怎么做。准备好了就开始计时！'),
       );
+      bar.set({ items: [{ label: '开始计时', key: '空格', kind: 'green', icon: 'play', onclick: runPhase }] });
       speak('想好了吗？按空格开始！');
       keys({ space: runPhase });
     };
@@ -126,17 +133,16 @@ export function runDrill(o: DrillOptions): Promise<DrillResult> {
     const runPhase = () => {
       if (!o.alive()) return;
       const t0 = performance.now();
-      const clock = h('div', { class: 'drill-clock' }, '0.0');
-      st.cover(true, '🧊✋');
-      box.replaceChildren(
-        h('div', { class: 'step-say big-say' }, '用你的魔方做！做完按空格。'),
-        clock,
-        h('div', { class: 'btn-row' }, keyBtn('btn green', '做完了', '空格', () => stop())),
-      );
+      const digits = h('span', null, '0.0');
+      // 整块计时区都能点：手机立在桌上，拍哪儿都算做完了
+      const clock = h('button', { class: 'drill-clock', type: 'button', onclick: () => stop(), 'aria-label': '做完了，停表' }, digits, h('small', null, '做完了，拍一下'));
+      st.cover(true, '用你的魔方做！');
+      box.replaceChildren(clock);
+      bar.set({ items: [{ label: '做完了', key: '空格', kind: 'green', icon: 'stop', onclick: () => stop() }] });
       beep('tick');
       let raf = 0;
       const tick = () => {
-        clock.textContent = fmt(performance.now() - t0);
+        digits.textContent = fmt(performance.now() - t0);
         raf = requestAnimationFrame(tick);
       };
       tick();
@@ -151,10 +157,15 @@ export function runDrill(o: DrillOptions): Promise<DrillResult> {
     const checkPhase = (ms: number) => {
       if (!o.alive()) return;
       box.replaceChildren(
-        h('div', { class: 'drill-clock' }, `${fmt(ms)} 秒`),
-        h('div', { class: 'step-say big-say' }, '成功了吗？'),
-        h('div', { class: 'btn-row' }, keyBtn('btn ghost', '😣 没成功', '1', fail), keyBtn('btn green', '✅ 成功了', '空格', () => success(ms))),
+        h('div', { class: 'drill-clock still' }, `${fmt(ms)} 秒`),
+        h('div', { class: 'step-say big-say' }, '好朋友回家了吗？'),
       );
+      bar.set({
+        items: [
+          { label: '没成功', key: '1', kind: 'ghost', onclick: fail },
+          { label: '成功了', key: '空格', kind: 'green', icon: 'check', onclick: () => success(ms) },
+        ],
+      });
       speak(`${fmt(ms)}秒。成功了吗？成功按空格，没成功按1。`);
       keys({ space: () => success(ms), '1': fail });
     };
@@ -167,7 +178,8 @@ export function runDrill(o: DrillOptions): Promise<DrillResult> {
       if (rep >= o.reps) {
         celebrate('全部完成！');
         const best = Math.min(...result.times);
-        box.replaceChildren(h('div', { class: 'step-say big-say' }, `🎉 ${o.reps} 次都完成了！最快 ${fmt(best)} 秒`));
+        box.replaceChildren(h('div', { class: 'step-say big-say' }, `${o.reps} 次都完成了！最快 ${fmt(best)} 秒`));
+        bar.clear();
         speak(`太棒了，最快${fmt(best)}秒！`).then(() => resolve(result));
         return;
       }
@@ -180,6 +192,7 @@ export function runDrill(o: DrillOptions): Promise<DrillResult> {
       result.fails++;
       const say = h('div', { class: 'step-say' }, '没关系！先看我做一遍。');
       box.replaceChildren(say);
+      bar.clear();
       keys({});
       st.cover(false);
       await speak('没关系！先看我做一遍。');

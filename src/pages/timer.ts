@@ -2,7 +2,8 @@ import { randomScramble } from '../cube/alg';
 import { faceName } from '../cube/model';
 import { load, save, type Solve } from '../store';
 import { beep, h, speak } from '../ui/dom';
-import { keyHints, topbar } from '../ui/components';
+import { algView, kbd, pageHeader, tabbar } from '../ui/components';
+import { icon } from '../ui/icons';
 import { setKeys } from '../ui/keys';
 
 export function fmt(ms: number): string {
@@ -34,7 +35,7 @@ export function chart(solves: Solve[]): SVGSVGElement {
   const line = document.createElementNS(ns, 'polyline');
   line.setAttribute('points', pts.join(' '));
   line.setAttribute('fill', 'none');
-  line.setAttribute('stroke', '#ff6b6b');
+  line.setAttribute('stroke', '#2468E8');
   line.setAttribute('stroke-width', '2.5');
   line.setAttribute('stroke-linejoin', 'round');
   line.setAttribute('vector-effect', 'non-scaling-stroke');
@@ -51,22 +52,32 @@ export function timerPage(root: HTMLElement): () => void {
   let inspectTimer = 0;
   let last = 0;
   let scramble = randomScramble(20);
-  const time = h('div', { class: 'time' }, '0.00');
-  const tip = h('div', { class: 'tip' });
-  const face = h('div', { class: 'timer-face' }, h('div', null, time, tip));
-  const scr = h('div', { class: 'info-note', style: 'font-size:18px;margin-bottom:12px' });
+  const time = h('span', { class: 'time' }, '0.00');
+  const delta = h('span', { class: 'delta', hidden: true });
+  const tipText = h('span');
+  const tip = h('span', { class: 'tip' }, h('span', { class: 'hint-mouse' }, kbd('空格'), ' 或点一下，'), h('span', { class: 'hint-touch' }, '拍一下，'), tipText);
+  const face = h('button', { class: 'timer-face', type: 'button' }, time, delta, tip);
+  const scr = h('div', { class: 'scramble-card' });
   const statsBox = h('div', { class: 'stats' });
-  const chartBox = h('div', { class: 'chart' });
-  const noteRow = h('div', { class: 'chips', style: 'margin-top:12px' });
-  const inspBtn = h('button', { class: 'chip' });
+  const chartBox = h('figure', { class: 'chart' });
+  const noteRow = h('div', { class: 'chips notes-row', role: 'group', 'aria-label': '这次哪里卡住' });
+  const inspBtn = h('button', { class: 'switch', type: 'button', role: 'switch' }, '先观察 15 秒', h('i'));
 
   const syncTip = () => {
-    tip.textContent =
-      mode === 'idle' ? (useInspect ? '按空格开始 15 秒观察' : '按空格开始计时') : mode === 'inspect' ? '只看不动手！看好了按空格开始' : mode === 'run' ? '还原好了按空格停' : '按空格开始下一次';
+    tipText.textContent =
+      mode === 'idle' ? (useInspect ? '开始 15 秒观察' : '开始计时') : mode === 'inspect' ? '只看不动手！看好了就开始' : mode === 'run' ? '还原好了就停' : '开始下一次';
     face.className = 'timer-face' + (mode === 'inspect' ? ' inspect' : mode === 'run' ? ' ready' : '');
-    inspBtn.className = 'chip' + (useInspect ? ' on' : '');
-    inspBtn.textContent = '15 秒观察';
-    scr.replaceChildren(h('b', null, '打乱：'), h('span', { class: 'alg' }, scramble), h('div', { class: 'muted' }, `白色朝下、${faceName('F')}色朝前，照着做`));
+    face.setAttribute('aria-label', tipText.textContent);
+    inspBtn.setAttribute('aria-checked', String(useInspect));
+    scr.replaceChildren(
+      h('div', { class: 'scramble-top' }, h('span', null, `打乱 · 白色朝下、${faceName('F')}色朝前`), h('button', { class: 'small-btn', type: 'button', onclick: newScramble }, '换一个')),
+      algView(scramble).el,
+    );
+  };
+  const newScramble = () => {
+    if (mode === 'inspect' || mode === 'run') return;
+    scramble = randomScramble(20);
+    syncTip();
   };
   const renderStats = () => {
     const ss = load().solves;
@@ -74,16 +85,18 @@ export function timerPage(root: HTMLElement): () => void {
     const a5 = avgOf(ss, 5);
     const a12 = avgOf(ss, 12);
     statsBox.replaceChildren(
-      ...[
-        ['最好', best],
-        ['5 次平均', a5],
-        ['12 次平均', a12],
-        ['一共', ss.length],
-      ].map(([k, v]) =>
-        h('div', { class: 'stat' }, h('div', { class: 'v' }, v === null ? '—' : k === '一共' ? String(v) : fmt(v as number)), h('div', { class: 'k' }, k as string)),
+      ...(
+        [
+          ['最好', best, 'stat best'],
+          ['5 次平均', a5, 'stat'],
+          ['12 次平均', a12, 'stat'],
+          ['一共', ss.length, 'stat'],
+        ] as [string, number | null, string][]
+      ).map(([k, v, cls]) =>
+        h('div', { class: cls }, h('div', { class: 'k' }, k), h('div', { class: 'v' }, v === null ? '—' : k === '一共' ? `${v} 次` : fmt(v))),
       ),
     );
-    chartBox.replaceChildren(h('div', { class: 'muted' }, '最近 40 次'), chart(ss));
+    chartBox.replaceChildren(h('figcaption', { class: 'muted' }, '最近 40 次 · 越往下越快'), chart(ss));
   };
   const tickRun = () => {
     time.textContent = fmt(performance.now() - t0);
@@ -96,12 +109,12 @@ export function timerPage(root: HTMLElement): () => void {
     tickRun();
     syncTip();
   };
-  const notes = ['十字慢了', 'F2L 卡住了', '找不到下一对', 'OLL 认不出', 'PLL 做错了', '很顺利 😄'];
+  const notes = ['十字慢了', '好朋友卡住了', '找不到下一对', '顶层认不出', '顶层换错了', '很顺利'];
   const showNotes = () => {
     noteRow.replaceChildren(
       h('span', { class: 'muted' }, '这次哪里卡住？'),
       ...notes.map((n) => {
-        const b = h('button', { class: 'chip' }, n);
+        const b = h('button', { class: 'chip', type: 'button' }, n);
         b.onclick = () => {
           save((d) => {
             const s = d.solves[d.solves.length - 1];
@@ -117,6 +130,7 @@ export function timerPage(root: HTMLElement): () => void {
   face.onclick = () => {
     if (mode === 'idle' || mode === 'done') {
       noteRow.replaceChildren();
+      delta.hidden = true;
       if (!useInspect) return startRun();
       mode = 'inspect';
       let left = 15;
@@ -140,9 +154,16 @@ export function timerPage(root: HTMLElement): () => void {
       cancelAnimationFrame(raf);
       const ms = performance.now() - t0;
       time.textContent = fmt(ms);
+      const prev = load().solves[load().solves.length - 1];
       last = Date.now();
       save((d) => d.solves.push({ at: last, ms }));
       beep('good');
+      if (prev) {
+        const diff = (prev.ms - ms) / 1000;
+        delta.hidden = false;
+        delta.className = diff >= 0 ? 'delta' : 'delta slower';
+        delta.replaceChildren(diff >= 0 ? icon('up', 20) : '', diff >= 0 ? `比上次快 ${diff.toFixed(2)} 秒` : `比上次慢 ${(-diff).toFixed(2)} 秒`);
+      }
       mode = 'done';
       scramble = randomScramble(20);
       syncTip();
@@ -151,13 +172,18 @@ export function timerPage(root: HTMLElement): () => void {
     }
   };
   inspBtn.onclick = () => {
+    if (mode === 'inspect' || mode === 'run') return;
     useInspect = !useInspect;
     syncTip();
   };
   syncTip();
   renderStats();
   setKeys({ space: () => face.click(), esc: () => (location.hash = '#/') });
-  root.append(topbar('⏱️ 计时器', '#/', inspBtn), scr, face, keyHints([['空格', '开始 / 停'], ['Esc', '回首页']]), noteRow, statsBox, chartBox);
+  root.append(
+    pageHeader('计时器', undefined, inspBtn),
+    h('main', { class: 'timer-layout' }, h('div', { class: 'timer-main' }, scr, face, noteRow), h('aside', { class: 'timer-aside' }, statsBox, chartBox)),
+    tabbar('timer'),
+  );
   return () => {
     cancelAnimationFrame(raf);
     clearInterval(inspectTimer);

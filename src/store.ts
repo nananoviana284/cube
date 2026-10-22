@@ -36,6 +36,8 @@ export interface Data {
   followPause: number;
   /** 上次打开的课 */
   lastLesson?: string;
+  /** 每天做过的事（首页"今天"三件事打勾用），例如 {"2026-10-22": ["lesson", "game"]} */
+  activity: Record<string, string[]>;
 }
 
 const KEY = 'cube-coach-v1';
@@ -57,6 +59,7 @@ function defaults(): Data {
     dailyMinutes: 60,
     parentView: false,
     followPause: 2500,
+    activity: {},
   };
 }
 
@@ -102,4 +105,26 @@ export function today(): string {
 /** 从开始训练算起是第几周（1 起） */
 export function weekNumber(): number {
   return Math.floor((Date.now() - load().startedAt) / (7 * 86400000)) + 1;
+}
+
+/** 记一笔"今天做过这件事" */
+export function logToday(what: 'lesson' | 'game'): void {
+  const t = today();
+  if (load().activity[t]?.includes(what)) return;
+  save((d) => {
+    d.activity[t] = [...(d.activity[t] ?? []), what];
+  });
+}
+
+export function didToday(what: 'lesson' | 'game'): boolean {
+  return load().activity[today()]?.includes(what) ?? false;
+}
+
+/** 今天计时了几次 */
+export function solvesToday(): number {
+  const t = today();
+  return load().solves.filter((s) => {
+    const d = new Date(s.at);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` === t;
+  }).length;
 }

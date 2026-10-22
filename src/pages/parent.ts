@@ -2,8 +2,10 @@ import { LESSONS, lessonById } from '../content/lessons';
 import type { Color } from '../cube/model';
 import { BOOK } from './book';
 import { load, save, today, weekNumber } from '../store';
-import { h, starsText } from '../ui/dom';
-import { topbar } from '../ui/components';
+import { h } from '../ui/dom';
+import { starRow } from '../ui/components';
+import { icon } from '../ui/icons';
+import { setKeys } from '../ui/keys';
 import { avgOf, chart, fmt } from './timer';
 
 export interface Week {
@@ -165,11 +167,15 @@ export function parentPage(root: HTMLElement): () => void {
       }),
     );
   syncPractice();
-  const last14 = Array.from({ length: 14 }, (_, i) => {
-    const dt = new Date(Date.now() - (13 - i) * 86400000);
-    const k = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
-    return d.practice[k] ? '🟩' : '⬜';
-  }).join('');
+  const last14 = h(
+    'div',
+    { class: 'streak', 'aria-label': '最近 14 天有没有练' },
+    ...Array.from({ length: 14 }, (_, i) => {
+      const dt = new Date(Date.now() - (13 - i) * 86400000);
+      const k = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
+      return h('span', { class: d.practice[k] ? 'on' : '', title: k });
+    }),
+  );
 
   const ss = d.solves;
   const a5 = avgOf(ss, 5);
@@ -181,23 +187,31 @@ export function parentPage(root: HTMLElement): () => void {
     .map(([n, c]) => `${n} ×${c}`)
     .join('、');
 
-  root.append(
-    topbar('👨‍👩‍👦 家长中心', '#/'),
+  const current = lessonById(d.lastLesson ?? '') ?? LESSONS[0];
+  const panels: HTMLElement[] = [
     h(
       'div',
       { class: 'panel' },
-      h('h2', null, '📅 今天练什么'),
+      h('h2', null, '今天练什么'),
       h('p', null, h('b', null, `第 ${wk} 周：${PLAN[wk - 1].theme}`)),
       planBox,
       h('p', { class: 'muted' }, '孩子还想玩的时候就停，比练到烦了再停效果好得多。5 岁孩子一次专注大约 15 分钟，所以一小时要拆成几段，中间站起来活动一下。'),
       h('h3', null, '今天练了多久？'),
       practiceRow,
-      h('p', { class: 'muted' }, `最近 14 天：${last14}`),
+      h('p', { class: 'muted' }, '最近 14 天：'),
+      last14,
     ),
     h(
       'div',
       { class: 'panel' },
-      h('h2', null, '🧭 这套训练的思路'),
+      h('h2', null, `孩子正在上的课：${current.title}`),
+      h('div', { html: current.parent }),
+      h('p', { class: 'muted' }, '在孩子的上课页面里，按住右上角的锁 2 秒，也能直接看到这一课的说明。'),
+    ),
+    h(
+      'div',
+      { class: 'panel' },
+      h('h2', null, '这套训练的思路'),
       h('div', {
         html: `
 <p><b>不背公式，学"为什么"。</b>孩子目前的瓶颈是 F2L（两层一起做）和顶层还在用七步法。这两件事本质上都不需要大量背公式：</p>
@@ -217,7 +231,7 @@ export function parentPage(root: HTMLElement): () => void {
     h(
       'div',
       { class: 'panel' },
-      h('h2', null, '🗓️ 12 周课表'),
+      h('h2', null, '12 周课表'),
       h(
         'div',
         { class: 'table-scroll' },
@@ -257,17 +271,17 @@ export function parentPage(root: HTMLElement): () => void {
     h(
       'div',
       { class: 'panel' },
-      h('h2', null, '⭐ 闯关进度'),
+      h('h2', null, '闯关进度'),
       h(
         'table',
         null,
-        ...LESSONS.map((l) => h('tr', null, h('td', null, `${l.emoji} ${l.title}`), h('td', { style: 'color:#f4a100;white-space:nowrap' }, starsText(d.stars[l.id] ?? 0)))),
+        ...LESSONS.map((l) => h('tr', null, h('td', null, l.title), h('td', { style: 'white-space:nowrap' }, starRow(d.stars[l.id] ?? 0, 3, 16)))),
       ),
     ),
     h(
       'div',
       { class: 'panel' },
-      h('h2', null, '⏱️ 成绩'),
+      h('h2', null, '成绩'),
       h(
         'p',
         null,
@@ -281,7 +295,7 @@ export function parentPage(root: HTMLElement): () => void {
     h(
       'div',
       { class: 'panel' },
-      h('h2', null, '📒 公式本：会不会'),
+      h('h2', null, '公式本：会不会'),
       h('p', null, bookSummary()),
       h('p', { class: 'muted' }, '每个情况都有图和动画，可以写上家里的叫法，并打分"不会 / 还不熟 / 会了"。打分会让练习场多出"不会"的情况。'),
       h('button', { class: 'btn blue', onclick: () => (location.hash = '#/book') }, '打开公式本'),
@@ -289,7 +303,7 @@ export function parentPage(root: HTMLElement): () => void {
     h(
       'div',
       { class: 'panel' },
-      h('h2', null, '⚙️ 设置'),
+      h('h2', null, '设置'),
       h('p', null, '孩子的名字：', nameInput),
       h('div', { class: 'chips' }, voice),
       h('div', { style: 'margin-top:8px' }, speedSel),
@@ -313,6 +327,49 @@ export function parentPage(root: HTMLElement): () => void {
         }, '导出记录'),
       ),
     ),
+  ];
+  // 左侧（手机上是顶部）目录：点一下滚到那一块
+  const [todayPanel, lesson, idea, plan, progress, results, book, settings] = panels;
+  settings.append(
+    h('h3', null, '自由魔方'),
+    h('p', { class: 'muted' }, '输入任何公式看动画，用来给孩子演示。'),
+    h('button', { class: 'btn ghost', type: 'button', onclick: () => (location.hash = '#/lab') }, icon('flask', 22), '打开自由魔方'),
   );
+  const order: [string, HTMLElement][] = [
+    ['今天', todayPanel],
+    ['正在上的课', lesson],
+    ['进步记录', results],
+    ['闯关进度', progress],
+    ['公式本', book],
+    ['12 周课表', plan],
+    ['训练思路', idea],
+    ['设置', settings],
+  ];
+  const navBtns = order.map(([label, el], i) => {
+    const b = h('button', { type: 'button', class: i === 0 ? 'on' : '' }, label);
+    b.onclick = () => {
+      navBtns.forEach((x) => x.classList.toggle('on', x === b));
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
+    return b;
+  });
+  document.body.classList.add('parent-mode');
+  const days = Math.floor((Date.now() - d.startedAt) / 86400000) + 1;
+  root.append(
+    h(
+      'header',
+      { class: 'parent-head' },
+      h('span', { class: 'badge' }, icon('lock', 22)),
+      h('div', { style: 'flex:1;min-width:0' }, h('h1', null, '家长中心'), h('div', { class: 'muted' }, `${d.kidName} · 开始训练第 ${days} 天`)),
+      h('a', { class: 'btn green', href: '#/' }, '回到孩子模式'),
+    ),
+    h(
+      'div',
+      { class: 'parent-layout' },
+      h('nav', { class: 'parent-nav', 'aria-label': '家长中心目录' }, ...navBtns, h('p', null, '孩子界面里看不到这里的内容。进入方式：在首页按住右上角的锁 2 秒。')),
+      h('main', null, ...order.map(([, el]) => el)),
+    ),
+  );
+  setKeys({ esc: () => (location.hash = '#/') });
   return () => {};
 }
