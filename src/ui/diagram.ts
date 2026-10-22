@@ -31,9 +31,10 @@ export interface Overlay {
   cues?: { pos: Vec; face: Face }[];
 }
 
-export function stateDiagram(s: CubeState, mode: DiagramMode, overlay?: Overlay): SVGSVGElement {
+export function stateDiagram(s: CubeState, mode: DiagramMode, overlay?: Overlay, only?: (pos: Vec) => boolean): SVGSVGElement {
   const top = s.centerColor('U');
-  const paint = (c: Color | null) => (!c ? GREY : mode === 'pll' ? FILL[c] : c === top ? FILL[c] : GREY);
+  const paint = (c: Color | null, pos?: Vec) =>
+    !c ? GREY : only ? (pos && (only(pos) || (pos[0] === 0 && pos[2] === 0)) ? FILL[c] : GREY) : mode === 'pll' ? FILL[c] : c === top ? FILL[c] : GREY;
   const isCorner = (pos: Vec) => pos[0] !== 0 && pos[2] !== 0;
   const ns = 'http://www.w3.org/2000/svg';
   const svg = document.createElementNS(ns, 'svg');
@@ -61,9 +62,9 @@ export function stateDiagram(s: CubeState, mode: DiagramMode, overlay?: Overlay)
   for (let r = 0; r < 3; r++)
     for (let c = 0; c < 3; c++) {
       const pos: Vec = [c - 1, 1, r - 1];
-      rect(o + c * cell, o + r * cell, cell, cell, paint(s.colorAt(pos, 'U')), skip(pos), `${pos}:U`);
+      rect(o + c * cell, o + r * cell, cell, cell, paint(s.colorAt(pos, 'U'), pos), skip(pos), `${pos}:U`);
     }
-  const strip = (face: Face, pos: Vec, x: number, y: number, w: number, hgt: number) => rect(x, y, w, hgt, paint(s.colorAt(pos, face)), skip(pos), `${pos}:${face}`);
+  const strip = (face: Face, pos: Vec, x: number, y: number, w: number, hgt: number) => rect(x, y, w, hgt, paint(s.colorAt(pos, face), pos), skip(pos), `${pos}:${face}`);
   for (let i = 0; i < 3; i++) {
     strip('B', [i - 1, 1, -1], o + i * cell + 2, o - side - 2, cell - 4, side);
     strip('F', [i - 1, 1, 1], o + i * cell + 2, o + 3 * cell + 2, cell - 4, side);
@@ -75,6 +76,39 @@ export function stateDiagram(s: CubeState, mode: DiagramMode, overlay?: Overlay)
 }
 
 const BLUE = '#1b4fb8';
+
+/**
+ * 好朋友回家的俯视图：只给这一对好朋友上色（全彩模式下全部上色，要自己找），
+ * 角上的小方块是它们的家，两半涂成家两边的颜色。
+ */
+export function pairDiagram(s: CubeState, slot: string, full = false): SVGSVGElement {
+  const ids = [`D${slot}`, slot];
+  const svg = stateDiagram(s, 'pll', undefined, full ? () => true : (pos) => ids.includes(s.at(pos).id));
+  const ns = 'http://www.w3.org/2000/svg';
+  const xFace = slot[1] as Face;
+  const zFace = slot[0] as Face;
+  const sx = xFace === 'R' ? 1 : -1;
+  const sz = zFace === 'F' ? 1 : -1;
+  const c = 6.5;
+  const cx = 50 + sx * 41;
+  const cy = 50 + sz * 41;
+  // 朝里的那个角（挨着两条侧边）和朝外的角
+  const inner = [cx - sx * c, cy - sz * c];
+  const outer = [cx + sx * c, cy + sz * c];
+  const tri = (third: number[], color: Color) => {
+    const t = document.createElementNS(ns, 'polygon');
+    t.setAttribute('points', [inner, outer, third].map((p) => p.join(',')).join(' '));
+    t.setAttribute('fill', FILL[color]);
+    svg.append(t);
+  };
+  // 靠着右/左侧边的一半涂右/左的颜色，靠着前/后侧边的一半涂前/后的颜色
+  tri([outer[0], inner[1]], s.centerColor(xFace));
+  tri([inner[0], outer[1]], s.centerColor(zFace));
+  const box = document.createElementNS(ns, 'rect');
+  for (const [k, v] of Object.entries({ x: cx - c, y: cy - c, width: 2 * c, height: 2 * c, rx: 2.5, fill: 'none', stroke: BLUE, 'stroke-width': 1.8, 'stroke-dasharray': '3 2' })) box.setAttribute(k, String(v));
+  svg.append(box);
+  return svg;
+}
 
 function drawOverlay(svg: SVGSVGElement, ov: Overlay, boxes: Map<string, [number, number, number, number]>, center: (p: Vec) => [number, number]): void {
   const ns = 'http://www.w3.org/2000/svg';

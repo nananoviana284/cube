@@ -38,6 +38,19 @@ export interface Data {
   lastLesson?: string;
   /** 每天做过的事（首页"今天"三件事打勾用），例如 {"2026-10-22": ["lesson", "game"]} */
   activity: Record<string, string[]>;
+  /** 看图练习每一组的成绩（一眼认、第一步） */
+  drills: DrillLog[];
+}
+
+export interface DrillLog {
+  at: number;
+  game: string;
+  /** 做对的平均反应时间（毫秒） */
+  avg: number;
+  n: number;
+  wrong: number;
+  /** 最慢的一类 */
+  slow?: string;
 }
 
 const KEY = 'cube-coach-v1';
@@ -60,6 +73,7 @@ function defaults(): Data {
     parentView: false,
     followPause: 2500,
     activity: {},
+    drills: [],
   };
 }
 

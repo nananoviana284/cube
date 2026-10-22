@@ -3013,3 +3013,159 @@ body.parent-mode #app {
     font-size: 12px;
   }
 }
+
+/* ——— 看图练习：一眼认、第一步 ——— */
+.flash-stage {
+  background: var(--card);
+  border-radius: 32px;
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-height: 420px;
+  padding: 24px;
+}
+.flash-pic {
+  width: 100%;
+  max-width: 460px;
+}
+.flash-pic .diagram {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+.flash-time {
+  font-family: var(--num);
+  font-size: 30px;
+  font-weight: 900;
+  min-height: 1.3em;
+}
+.speed-fast {
+  color: var(--green-d);
+}
+.speed-ok {
+  color: #a87400;
+}
+.speed-slow {
+  color: #c45a00;
+}
+.flash-options .option {
+  min-height: 72px;
+  padding: 8px 16px 8px 12px;
+}
+.flash-options .option.ok,
+.flash-options .option.ok small {
+  color: #fff;
+}
+.flash-opt,
+.flash-step {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+.flash-opt .diagram {
+  width: 56px;
+  height: 56px;
+  flex: none;
+  background: #fff;
+  border-radius: 10px;
+}
+.flash-opt > span,
+.flash-step {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0;
+}
+.flash-opt small,
+.flash-step small {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ink-2);
+}
+.flash-step .alg {
+  font-family: var(--num);
+  font-size: 26px;
+}
+.flash-explain {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  align-items: center;
+  font-size: 18px;
+  font-weight: 700;
+}
+.flash-explain p {
+  margin: 0;
+  flex: 1 1 100%;
+}
+.flash-after {
+  margin: 0;
+  text-align: center;
+  font-size: 15px;
+}
+.flash-after .diagram {
+  width: 140px;
+  height: 140px;
+}
+.flash-tag {
+  display: flex;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 12px;
+  background: var(--ground);
+}
+.flash-h {
+  margin: 8px 0 0;
+  font-size: 16px;
+}
+.flash-recent {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+}
+.flash-recent li {
+  display: flex;
+  gap: 12px;
+  align-items: baseline;
+  font-size: 16px;
+}
+.flash-recent b {
+  font-family: var(--num);
+  font-size: 18px;
+}
+@media (max-width: 860px) {
+  .flash-stage {
+    padding: 10px;
+    border-radius: 24px;
+    min-height: 0;
+  }
+  .flash-pic {
+    max-width: min(100%, 38vh);
+  }
+  .flash-time {
+    font-size: 22px;
+  }
+}
+.flash-result {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  font-size: 20px;
+  font-weight: 800;
+}
+.flash-big {
+  font-family: var(--num);
+  font-size: 72px;
+  font-weight: 900;
+  line-height: 1.1;
+}
+.flash-result .flash-tag {
+  min-width: 220px;
+  justify-content: space-between;
+}
