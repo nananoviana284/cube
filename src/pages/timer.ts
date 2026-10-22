@@ -2,7 +2,8 @@ import { randomScramble } from '../cube/alg';
 import { faceName } from '../cube/model';
 import { load, save, type Solve } from '../store';
 import { beep, h, speak } from '../ui/dom';
-import { topbar } from '../ui/components';
+import { keyHints, topbar } from '../ui/components';
+import { setKeys } from '../ui/keys';
 
 export function fmt(ms: number): string {
   const s = ms / 1000;
@@ -53,7 +54,7 @@ export function timerPage(root: HTMLElement): () => void {
   const time = h('div', { class: 'time' }, '0.00');
   const tip = h('div', { class: 'tip' });
   const face = h('div', { class: 'timer-face' }, h('div', null, time, tip));
-  const scr = h('div', { class: 'parent-note', style: 'font-size:18px;margin-bottom:12px' });
+  const scr = h('div', { class: 'info-note', style: 'font-size:18px;margin-bottom:12px' });
   const statsBox = h('div', { class: 'stats' });
   const chartBox = h('div', { class: 'chart' });
   const noteRow = h('div', { class: 'chips', style: 'margin-top:12px' });
@@ -61,7 +62,7 @@ export function timerPage(root: HTMLElement): () => void {
 
   const syncTip = () => {
     tip.textContent =
-      mode === 'idle' ? (useInspect ? '点一下开始 15 秒观察' : '点一下开始计时') : mode === 'inspect' ? '只看不动手！看好了再点一下开始' : mode === 'run' ? '还原好了就点一下停' : '点一下开始下一次';
+      mode === 'idle' ? (useInspect ? '按空格开始 15 秒观察' : '按空格开始计时') : mode === 'inspect' ? '只看不动手！看好了按空格开始' : mode === 'run' ? '还原好了按空格停' : '按空格开始下一次';
     face.className = 'timer-face' + (mode === 'inspect' ? ' inspect' : mode === 'run' ? ' ready' : '');
     inspBtn.className = 'chip' + (useInspect ? ' on' : '');
     inspBtn.textContent = '15 秒观察';
@@ -155,7 +156,8 @@ export function timerPage(root: HTMLElement): () => void {
   };
   syncTip();
   renderStats();
-  root.append(topbar('⏱️ 计时器', '#/', inspBtn), scr, face, noteRow, statsBox, chartBox);
+  setKeys({ space: () => face.click(), esc: () => (location.hash = '#/') });
+  root.append(topbar('⏱️ 计时器', '#/', inspBtn), scr, face, keyHints([['空格', '开始 / 停'], ['Esc', '回首页']]), noteRow, statsBox, chartBox);
   return () => {
     cancelAnimationFrame(raf);
     clearInterval(inspectTimer);

@@ -61,7 +61,9 @@ export class CubeView {
   private root = new THREE.Group();
   private pivot = new THREE.Group();
   private meshes: CubieMesh[] = [];
-  private queue: { turn: Turn; ms: number; resolve?: () => void }[] = [];
+  private queue: { turn: Turn; ms: number; text: string; silent: boolean; resolve?: () => void }[] = [];
+  /** 每一步开始转时通知（舞台用它在旁边大字显示指令） */
+  onMove: ((token: string | null) => void) | null = null;
   private anim: { turn: Turn; ms: number; start: number; moving: CubieMesh[]; resolve?: () => void } | null = null;
   private arrow: THREE.Object3D | null = null;
   private arrowToken: string | null = null;
@@ -175,6 +177,7 @@ export class CubeView {
 
   /** 立即把魔方设成"从复原开始做 alg"之后的样子 */
   setAlg(alg: string): void {
+    this.onMove?.(null);
     const pending = this.queue;
     this.queue = [];
     this.finishAnim();
@@ -186,11 +189,11 @@ export class CubeView {
   }
 
   /** 播放一段公式，返回动画全部完成的 Promise */
-  play(alg: string, ms = this.speedMs): Promise<void> {
+  play(alg: string, ms = this.speedMs, silent = false): Promise<void> {
     const moves = parseAlg(alg);
     if (!moves.length) return Promise.resolve();
     return new Promise((resolve) => {
-      moves.forEach((m, i) => this.queue.push({ turn: m.turn, ms, resolve: i === moves.length - 1 ? resolve : undefined }));
+      moves.forEach((m, i) => this.queue.push({ turn: m.turn, ms, text: m.text, silent, resolve: i === moves.length - 1 ? resolve : undefined }));
     });
   }
 
@@ -291,6 +294,7 @@ export class CubeView {
   private startNext(now: number): void {
     const next = this.queue.shift();
     if (!next) return;
+    if (!next.silent) this.onMove?.(next.text);
     const moving = this.meshes.filter((cm) => next.turn.layers.includes(this.state.byId(cm.id).pos[next.turn.axis]));
     for (const cm of moving) this.pivot.attach(cm.group);
     this.anim = { turn: next.turn, ms: next.ms, start: now, moving, resolve: next.resolve };

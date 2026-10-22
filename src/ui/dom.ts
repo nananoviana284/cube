@@ -31,17 +31,29 @@ if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
   window.speechSynthesis.onvoiceschanged = pickVoice;
 }
 
-/** 用普通话读出来（5 岁孩子不一定认字） */
-export function speak(text: string, force = false): void {
-  if (!('speechSynthesis' in window)) return;
-  if (!force && !load().voice) return;
+/** 用普通话读出来（5 岁孩子不一定认字）。读完（或读不了）时 Promise 结束 */
+export function speak(text: string, force = false): Promise<void> {
+  if (!('speechSynthesis' in window) || (!force && !load().voice)) return Promise.resolve();
   window.speechSynthesis.cancel();
-  const u = new SpeechSynthesisUtterance(text.replace(/[A-Za-z]'/g, (m) => m[0] + '撇').replace(/[（(][^）)]*[）)]/g, ''));
+  const clean = text
+    .replace(/[A-Za-z]2/g, (m) => m[0] + '两下')
+    .replace(/[A-Za-z]'/g, (m) => m[0] + '撇')
+    .replace(/[（(][^）)]*[）)]/g, '')
+    .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}]/gu, '');
+  const u = new SpeechSynthesisUtterance(clean);
   u.lang = 'zh-CN';
   if (zhVoice) u.voice = zhVoice;
   u.rate = 0.92;
   u.pitch = 1.1;
-  window.speechSynthesis.speak(u);
+  return new Promise((resolve) => {
+    // 有的浏览器不触发 onend，按字数估一个最长时间兜底
+    const timer = setTimeout(resolve, 1500 + clean.length * 330);
+    u.onend = u.onerror = () => {
+      clearTimeout(timer);
+      resolve();
+    };
+    window.speechSynthesis.speak(u);
+  });
 }
 
 export function stopSpeak(): void {

@@ -50,7 +50,7 @@ export function labPage(root: HTMLElement): () => void {
         ),
         pad.el,
         h('div', {
-          class: 'parent-note',
+          class: 'info-note',
           html: '<b>小技巧：</b>"看它解决什么"会先把魔方摆成这个公式能解决的情况，再播放公式——用来给孩子演示任何一个 OLL/PLL/F2L 公式。支持 R U F L D B、M E S、x y z、小写宽层 r f 等写法。',
         }),
       ),

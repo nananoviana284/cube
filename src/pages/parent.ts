@@ -118,6 +118,23 @@ export function parentPage(root: HTMLElement): () => void {
       return b;
     }),
   );
+  const pauseSel = h('div', { class: 'chips' });
+  const syncPause = () =>
+    pauseSel.replaceChildren(
+      ...([
+        [1500, '1.5 秒'],
+        [2500, '2.5 秒'],
+        [4000, '4 秒'],
+      ] as [number, string][]).map(([v, n]) => {
+        const b = h('button', { class: 'chip' + (load().followPause === v ? ' on' : '') }, n);
+        b.onclick = () => {
+          save((x) => (x.followPause = v));
+          syncPause();
+        };
+        return b;
+      }),
+    );
+  syncPause();
   const minutesSel = h('div', { class: 'chips' });
   const syncMinutes = () =>
     minutesSel.replaceChildren(
@@ -276,6 +293,8 @@ export function parentPage(root: HTMLElement): () => void {
       h('p', null, '孩子的名字：', nameInput),
       h('div', { class: 'chips' }, voice),
       h('div', { style: 'margin-top:8px' }, speedSel),
+      h('h3', null, '"跟着做"每一步停多久'),
+      pauseSel,
       h('h3', null, '朝前的颜色'),
       frontSel,
       h('h3', null, '每天练习时间'),

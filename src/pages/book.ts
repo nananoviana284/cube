@@ -115,7 +115,7 @@ export function bookPage(root: HTMLElement): () => void {
     topbar('📒 公式本', '#/', summary),
     h(
       'div',
-      { class: 'parent-note', style: 'margin-bottom:14px' },
+      { class: 'info-note', style: 'margin-bottom:14px' },
       '练习时随手打分：不会 / 还不熟 / 会了。名字和您平时教的不一样的话，就在"我们叫它"里写上家里的叫法，课程和练习场里会一起用。打分会影响「好朋友回家练习场」：不会的出现得最多。',
     ),
     h('div', { class: 'player book-top' }, st.el, h('div', { class: 'side' }, caption, algBox)),
