@@ -31,13 +31,25 @@ if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
   window.speechSynthesis.onvoiceschanged = pickVoice;
 }
 
+/** 文字里单独出现的转动指令，如 R、U'、r2、x */
+const MOVE_TOKEN = /(?<![A-Za-z0-9])([RLUDFBMESrludfbxyz])(['2]?)(?![A-Za-z0-9])/g;
+
+/**
+ * 指令怎么念：大写正常念，不说"大写"（有的语音会把单独的大写字母念成"大写 U"，
+ * 所以交给语音的是小写字母）；小写要强调，念"小 r"。撇念"撇"，2 念"两下"。
+ */
+export function sayMove(letter: string, suffix = ''): string {
+  const isLower = letter === letter.toLowerCase() && !'xyz'.includes(letter);
+  const base = isLower ? `小 ${letter}` : letter.toLowerCase();
+  return ` ${base}${suffix === "'" ? ' 撇' : suffix === '2' ? ' 两下' : ''} `;
+}
+
 /** 用普通话读出来（5 岁孩子不一定认字）。读完（或读不了）时 Promise 结束 */
 export function speak(text: string, force = false): Promise<void> {
   if (!('speechSynthesis' in window) || (!force && !load().voice)) return Promise.resolve();
   window.speechSynthesis.cancel();
   const clean = text
-    .replace(/[A-Za-z]2/g, (m) => m[0] + '两下')
-    .replace(/[A-Za-z]'/g, (m) => m[0] + '撇')
+    .replace(MOVE_TOKEN, (_m, l: string, suf: string) => sayMove(l, suf))
     .replace(/[（(][^）)]*[）)]/g, '')
     .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}]/gu, '');
   const u = new SpeechSynthesisUtterance(clean);
