@@ -10,7 +10,7 @@ import { topbar } from '../ui/components';
 export const GAMES = [
   { id: 'track', emoji: '🕵️', name: '跟踪小侦探', desc: '眼睛跟住一个方块' },
   { id: 'friend', emoji: '🤝', name: '快找好朋友', desc: '比比谁找得快' },
-  { id: 'f2l', emoji: '🌳', name: '好朋友回家练习场', desc: '随机 F2L 情况' },
+  { id: 'f2l', emoji: '🌳', name: '好朋友回家练习场', desc: '真魔方计时练 F2L' },
   { id: 'lights', emoji: '🚗', name: '车灯快认', desc: '一眼认 PLL' },
   { id: 'metro', emoji: '🐢', name: '乌龟节拍器', desc: '慢慢转，不要停' },
 ];

@@ -1,33 +1,12 @@
-import { kidWords, parseAlg } from '../cube/alg';
+import { parseAlg } from '../cube/alg';
 import { faceName } from '../cube/model';
-import type { CubeState } from '../cube/model';
-import { LESSONS, lessonById, resolveSetup, type Goal, type Scene } from '../content/lessons';
+import { LESSONS, lessonById, resolveSetup, type Scene } from '../content/lessons';
 import { giveStars, load, save } from '../store';
 import { beep, celebrate, h, speak, starsText, stopSpeak } from '../ui/dom';
 import { clearKeys, setKeys, type KeyMap } from '../ui/keys';
 import { withNicks } from './book';
-import { algView, keyBtn, keyHints, movePad, playWithArrows, stage, topbar, wait } from '../ui/components';
-
-export function checkGoal(s: CubeState, g: Goal): boolean {
-  switch (g) {
-    case 'solved':
-      return s.isSolved();
-    case 'cross':
-      return s.isCrossSolved();
-    case 'topCross':
-      return s.isTopCrossDone();
-    case 'oll':
-      return s.isOLLSolved();
-  }
-}
-
-function tryParse(alg: string): string[] | null {
-  try {
-    return parseAlg(alg).map((m) => m.text);
-  } catch {
-    return null;
-  }
-}
+import { algView, keyBtn, keyHints, playWithArrows, stage, topbar, wait } from '../ui/components';
+import { followAlong, runDrill } from '../ui/drill';
 
 /** 跟着做时最多带孩子转多少步（太长的打乱不适合跟着做） */
 const FOLLOW_MAX = 14;
@@ -39,6 +18,8 @@ export function lessonPage(root: HTMLElement, id: string): () => void {
     return () => {};
   }
   save((d) => (d.lastLesson = lesson.id));
+  // 最后一幕：把这一课的原理直接讲给孩子听
+  const scenes: Scene[] = [...lesson.scenes, { kind: 'talk', say: `🔑 今天的秘诀：${lesson.secret}`, secret: true }];
   let idx = 0;
   let mistakes = 0;
   let alive = true;
@@ -46,7 +27,7 @@ export function lessonPage(root: HTMLElement, id: string): () => void {
   let gen = 0;
   const st = stage('front');
   const { view } = st;
-  const dots = h('div', { class: 'dots' }, ...lesson.scenes.map(() => h('span')));
+  const dots = h('div', { class: 'dots' }, ...scenes.map(() => h('span')));
   const side = h('div', { class: 'side' });
   const islandHref = `#/island/${lesson.island}`;
   const toIsland = () => (location.hash = islandHref);
@@ -61,12 +42,12 @@ export function lessonPage(root: HTMLElement, id: string): () => void {
   const goto = (i: number) => {
     if (!alive) return;
     idx = Math.max(0, i);
-    if (idx >= lesson.scenes.length) finish();
+    if (idx >= scenes.length) finish();
     else show();
   };
   const next = () => goto(idx + 1);
 
-  function prep(scene: Exclude<Scene, { kind: 'real' }>): string {
+  function prep(scene: Exclude<Scene, { kind: 'real' } | { kind: 'drill' }>): string {
     const setup = resolveSetup(scene.setup);
     view.setAlg(setup);
     view.highlight(scene.highlight ?? null);
@@ -91,38 +72,9 @@ export function lessonPage(root: HTMLElement, id: string): () => void {
     return keyHints([...hints, ...common]);
   }
 
-  /**
-   * 跟着做：每一步亮箭头、读口令、停一会儿再转，孩子用自己的魔方同步做。
-   * 空格可以不等停顿直接下一步。返回 false 表示中途被打断。
-   */
-  async function follow(alg: string, start: string, box: HTMLElement, my: number): Promise<boolean> {
-    const moves = parseAlg(alg).map((m) => m.text);
-    view.setAlg(start);
-    view.setPreset('front');
-    st.cover(false);
-    let skip: (() => void) | null = null;
-    setKeys({ space: () => skip?.(), right: () => skip?.(), esc: toIsland });
-    for (let i = 0; i < moves.length; i++) {
-      if (!alive || my !== gen) return false;
-      const m = moves[i];
-      box.replaceChildren(h('div', { class: 'follow-move' }, m, h('small', null, `${kidWords(m)}（${i + 1}/${moves.length}）`)));
-      view.showArrow(m);
-      view.onMove?.(m);
-      await speak(`${m}，${kidWords(m)}`);
-      await new Promise<void>((r) => {
-        const t = setTimeout(r, load().followPause);
-        skip = () => {
-          clearTimeout(t);
-          r();
-        };
-      });
-      skip = null;
-      if (!alive || my !== gen) return false;
-      view.showArrow(null);
-      await view.play(m);
-    }
-    return true;
-  }
+  /** 跟着做（见 ui/drill.ts），场景切换后自动停 */
+  const follow = (alg: string, start: string, box: HTMLElement, my: number) =>
+    followAlong(st, alg, start, box, () => alive && my === gen, { esc: toIsland });
 
   function show(): void {
     const my = ++gen;
@@ -130,11 +82,11 @@ export function lessonPage(root: HTMLElement, id: string): () => void {
     setDots();
     side.replaceChildren();
     st.cover(false);
-    const scene = lesson!.scenes[idx];
+    const scene = scenes[idx];
     const say = withNicks(scene.say);
-    side.append(h('div', { class: 'bubble' }, h('div', { class: 'who' }, '🧑‍🏫'), h('div', { class: 'txt big-say' }, say)));
+    side.append(h('div', { class: scene.kind === 'talk' && scene.secret ? 'bubble secret' : 'bubble' }, h('div', { class: 'who' }, '🧑‍🏫'), h('div', { class: 'txt big-say' }, say)));
     const spoken = speak(say);
-    if (scene.kind !== 'real') prep(scene);
+    if (scene.kind !== 'real' && scene.kind !== 'drill') prep(scene);
     const parentBox = h('div', { class: 'parent-note' }, h('b', null, '家长说明：'), h('div', { html: lesson!.parent }));
 
     if (scene.kind === 'talk') {
@@ -216,72 +168,20 @@ export function lessonPage(root: HTMLElement, id: string): () => void {
       if (setup) parentBox.append(h('p', null, '这个情况的摆法：从复原的魔方做 ', h('span', { class: 'alg' }, setup), '。'));
     }
 
-    if (scene.kind === 'try') {
-      const setup = resolveSetup(scene.setup);
-      const hintToks = tryParse(scene.hint);
-      let hintOn = false;
-      let hintPos = 0;
-      let count = 0;
-      let finished = false;
-      const status = h('div', { class: 'step-say' }, '用键盘转屏幕上的魔方：按 R 就是 R，Shift+R 就是 R\'');
-      const pad = movePad(scene.moves, async (m) => {
-        if (finished || view.busy || my !== gen) return;
-        count++;
-        if (hintOn && hintToks) {
-          if (m === hintToks[hintPos]) hintPos++;
-          else hintOn = false;
-        }
-        pad.mark(null);
-        view.showArrow(null);
-        await view.play(m);
-        if (checkGoal(view.state, scene.goal)) {
-          finished = true;
-          celebrate('成功啦！');
-          status.textContent = `🎉 用了 ${count} 步！`;
-          await speak('成功啦！');
-          if (alive && my === gen) next();
-          return;
-        }
-        if (hintOn && hintToks && hintPos < hintToks.length) {
-          pad.mark(hintToks[hintPos]);
-          view.showArrow(hintToks[hintPos]);
-          speak(`下一步，${hintToks[hintPos]}`);
-        }
-        if (count === 12 && !hintOn) {
-          status.textContent = '有点难？按 H 看提示，或者按退格键重来。';
-          speak('有点难？按 H 看提示');
-        }
+    if (scene.kind === 'drill') {
+      const box = h('div', { class: 'side' });
+      side.append(box);
+      const base: KeyMap = { voice: () => speak(say, true), esc: toIsland, left: idx > 0 ? () => goto(idx - 1) : undefined, right: next };
+      setKeys(base);
+      spoken.then(() => {
+        if (!alive || my !== gen) return;
+        runDrill({ st, box, next: scene.cases, reps: scene.reps, highlight: scene.highlight, alive: () => alive && my === gen, baseKeys: base }).then((r) => {
+          if (!alive || my !== gen) return;
+          mistakes += r.fails;
+          next();
+        });
       });
-      const reset = () => {
-        view.setAlg(setup);
-        count = 0;
-        hintOn = false;
-        pad.mark(null);
-        view.showArrow(null);
-        status.textContent = '重新开始！';
-      };
-      const hint = () => {
-        mistakes++;
-        if (!hintToks) {
-          status.textContent = `💡 ${scene.hint}`;
-          speak(scene.hint, true);
-          return;
-        }
-        reset();
-        hintOn = true;
-        hintPos = 0;
-        pad.mark(hintToks[0]);
-        view.showArrow(hintToks[0]);
-        status.textContent = '💡 跟着粉色箭头转！';
-        speak(`第一步，${hintToks[0]}，${kidWords(hintToks[0])}`, true);
-      };
-      side.append(
-        status,
-        pad.el,
-        h('div', { class: 'btn-row' }, keyBtn('btn ghost', '💡 提示', 'H', hint), keyBtn('btn ghost', '🔁 重来', '⌫', reset)),
-        keys(say, { hint, back: reset, right: next }, [['H', '提示'], ['⌫', '重来'], ['→', '跳过']]),
-      );
-      parentBox.append(h('p', null, '参考解法：', h('span', { class: 'alg' }, scene.hint)));
+      parentBox.append(h('p', null, '这一步完全在真魔方上做：屏幕出题、计时，孩子自己按空格说"成功了"或按 1 说"没成功"。没成功会先演示一遍再重来。'));
     }
 
     if (scene.kind === 'pick') {
@@ -442,6 +342,7 @@ export function lessonPage(root: HTMLElement, id: string): () => void {
         h('div', { class: 'stars' }, starsText(stars)),
         h('h2', null, '闯关成功！'),
         h('p', { class: 'muted' }, `${load().kidName}，今天学会了：${lesson!.goal}`),
+        h('div', { class: 'secret' }, `🔑 ${lesson!.secret}`),
         h(
           'div',
           { class: 'btn-row' },
@@ -451,7 +352,7 @@ export function lessonPage(root: HTMLElement, id: string): () => void {
         ),
       ),
     );
-    setKeys({ space: toNext, right: toNext, back: again, esc: toIsland });
+    setKeys({ space: toNext, right: toNext, back: again, esc: toIsland, voice: () => speak(`今天的秘诀：${lesson!.secret}`, true) });
     view.setAlg('');
     view.play('y y y y', 500, true);
   }
