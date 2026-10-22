@@ -122,7 +122,9 @@ export function formulaPage(root: HTMLElement, key: string): () => void {
 
   root.append(topbar(nameOf(e), '#/', nav), h('p', { class: 'fd-look' }, e.look), h('main', { class: 'fd-layout' }, demo, info));
   setKeys({ space: toggle, '2': restore, left: () => go(-1), right: () => go(1), esc: () => (location.hash = '#/') });
-  play();
+  // 进来先停在一开始的样子，孩子看清楚了自己按播放
+  pose();
+  setState('idle');
   return () => {
     playGen++;
     resume?.();
