@@ -57,7 +57,7 @@ export function homePage(root: HTMLElement): () => void {
   const card = h(
     'section',
     { class: 'continue-card' },
-    h('div', { class: 'cc-chip' }, h('i', { style: `background:${look.color}` }), `${nextIsland.name} · 第 ${nextIndex + 1} 关`),
+    h('div', { class: 'cc-chip' }, h('i', { style: `background:${look.color}` }), `${nextIsland.name} · 第 ${nextIndex + 1} 课`),
     h('h2', null, next.title),
     h('p', null, next.goal),
     cubeBox,
@@ -66,8 +66,8 @@ export function homePage(root: HTMLElement): () => void {
 
   const map = h(
     'section',
-    { class: 'map', 'aria-label': '闯关地图' },
-    h('div', { class: 'map-head' }, h('h2', null, '闯关地图'), h('span', { class: 'muted' }, '点任意一关都能进')),
+    { class: 'map', 'aria-label': '原理' },
+    h('div', { class: 'map-head' }, h('h2', null, '原理：公式背后的道理'), h('span', { class: 'muted' }, '点任意一课都能进')),
     ...ISLANDS.map((is) => {
       const ls = lessonsOf(is.id);
       const got = ls.reduce((a, l) => a + (d.stars[l.id] ?? 0), 0);
@@ -86,7 +86,7 @@ export function homePage(root: HTMLElement): () => void {
               {
                 href: `#/lesson/${l.id}`,
                 class: now ? 'node now' : stars ? 'node done' : 'node',
-                'aria-label': `第 ${i + 1} 关 ${l.title}${now ? '，现在在这里' : stars ? `，${stars} 颗星` : ''}`,
+                'aria-label': `第 ${i + 1} 课 ${l.title}${now ? '，现在在这里' : stars ? `，${stars} 颗星` : ''}`,
                 title: l.title,
               },
               String(i + 1),
@@ -126,6 +126,6 @@ export function homePage(root: HTMLElement): () => void {
 
 /** 旧的岛页面已经并进首页地图，老链接直接回首页 */
 export function islandPage(): () => void {
-  location.replace('#/');
+  location.replace('#/learn');
   return () => {};
 }

@@ -1712,10 +1712,11 @@ input[type='range'] {
 }
 .book-grid {
   display: grid;
-  grid-template-columns: 1fr;
-  gap: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+  gap: 12px;
 }
 .book-card {
+  cursor: pointer;
   background: var(--card);
   border-radius: 22px;
   box-shadow: var(--shadow-s);
@@ -2700,6 +2701,7 @@ body.parent-mode #app {
   margin-top: 8px;
 }
 .kin-link {
+  text-decoration: none;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -2763,4 +2765,177 @@ body.parent-mode #app {
 }
 .effect-angles .alg {
   color: var(--ink);
+}
+
+.book-card:hover,
+.book-card:focus-visible {
+  box-shadow: inset 0 0 0 3px var(--blue), var(--shadow-s);
+  outline: none;
+}
+.book-tab kbd {
+  margin-left: 6px;
+}
+
+/* ——— 公式详情页 ——— */
+.fd-look {
+  margin: -4px 0 14px;
+  font-size: 17px;
+  color: var(--ink-2);
+}
+.fd-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.fd-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700;
+  color: var(--ink-2);
+  margin-right: 6px;
+}
+.fd-group i {
+  width: 12px;
+  height: 12px;
+  border-radius: 4px;
+}
+.fd-layout {
+  display: grid;
+  grid-template-columns: minmax(320px, 40%) minmax(0, 1fr);
+  gap: 22px;
+  align-items: start;
+}
+.fd-demo {
+  position: sticky;
+  top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: var(--card);
+  border-radius: 28px;
+  box-shadow: var(--shadow-s);
+  padding: 16px;
+}
+.fd-demo .stage {
+  background: var(--ground);
+  box-shadow: none;
+  border-radius: 22px;
+  height: min(46dvh, 440px);
+  min-height: 260px;
+}
+.fd-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.fd-rate {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 700;
+}
+.fd-info {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.fd-card {
+  background: var(--card);
+  border-radius: 24px;
+  box-shadow: var(--shadow-s);
+  padding: 18px 22px;
+}
+.fd-card h2 {
+  font-size: 20px;
+  font-weight: 900;
+  margin: 0 0 10px;
+}
+.fd-card h3 {
+  font-size: 16px;
+  font-weight: 800;
+  margin: 14px 0 4px;
+}
+.fd-card p {
+  margin: 4px 0;
+  font-size: 16px;
+  line-height: 1.6;
+}
+.fd-big {
+  font-size: 19px !important;
+  font-weight: 700;
+  color: var(--ink);
+}
+.fd-effect {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+}
+.fd-effect > .diagram {
+  width: 220px;
+  height: 220px;
+  flex: none;
+}
+.fd-angles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-top: 10px;
+}
+.fd-angles figure {
+  margin: 0;
+  text-align: center;
+  font-size: 15px;
+}
+.fd-angles .diagram {
+  width: 120px;
+  height: 120px;
+}
+.fd-angles .alg {
+  font-size: 18px;
+}
+.fd-steps {
+  margin: 0;
+  padding-left: 1.4em;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 16px;
+  line-height: 1.5;
+}
+.fd-steps li b {
+  display: inline-block;
+  min-width: 64px;
+  margin-right: 8px;
+  font-size: 18px;
+}
+.fd-card .kin-chain .diagram {
+  width: 96px;
+  height: 96px;
+}
+.fd-card .kin-chain figure {
+  width: 110px;
+}
+@media (max-width: 860px) {
+  .fd-layout {
+    grid-template-columns: 1fr;
+  }
+  .fd-demo {
+    position: static;
+  }
+  .fd-effect {
+    flex-direction: column;
+  }
+  .fd-nav .fd-group,
+  .fd-nav .btn .lbl,
+  .fd-nav .btn kbd {
+    display: none;
+  }
+  .fd-nav .btn {
+    padding: 0 12px;
+    min-width: 0;
+  }
+  .book-grid {
+    grid-template-columns: 1fr;
+  }
 }

@@ -7,6 +7,7 @@ import { timerPage } from './pages/timer';
 import { parentPage } from './pages/parent';
 import { labPage } from './pages/lab';
 import { bookPage } from './pages/book';
+import { formulaPage } from './pages/formula';
 import { setKeys } from './ui/keys';
 
 const app = document.getElementById('app')!;
@@ -40,14 +41,21 @@ function route(): void {
     case 'parent':
       cleanup = parentPage(app);
       break;
+    case 'learn':
+      cleanup = homePage(app);
+      break;
+    case 'f':
+      cleanup = formulaPage(app, arg);
+      break;
     case 'book':
-      cleanup = bookPage(app);
+      // 旧链接：公式本现在就是首页
+      location.replace('#/');
       break;
     case 'lab':
       cleanup = labPage(app);
       break;
     default:
-      cleanup = homePage(app);
+      cleanup = bookPage(app);
   }
 }
 

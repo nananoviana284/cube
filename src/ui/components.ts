@@ -84,10 +84,10 @@ export function pageHeader(title: string, sub?: string, ...right: Node[]): HTMLE
 
 export type Tab = 'home' | 'games' | 'timer' | 'book';
 const TABS: [Tab, string, IconName, string][] = [
-  ['home', '闯关', 'map', '#/'],
+  ['book', '公式本', 'book', '#/'],
+  ['home', '原理', 'map', '#/learn'],
   ['games', '小游戏', 'game', '#/games'],
   ['timer', '计时器', 'timer', '#/timer'],
-  ['book', '公式本', 'book', '#/book'],
 ];
 
 /** 底部页签：电脑上是居中的一条，手机上贴底 */
