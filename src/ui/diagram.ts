@@ -10,6 +10,13 @@ const FILL: Record<Color, string> = {
   R: '#e0182d',
 };
 const GREY = '#c9ccd3';
+/** 不是重点的块：保留原来的颜色，但淡很多 */
+const fade = (hex: string, k = 0.74) => {
+  const a = parseInt(hex.slice(1), 16);
+  const b = parseInt(GREY.slice(1), 16);
+  const mix = (sh: number) => Math.round(((a >> sh) & 255) * (1 - k) + ((b >> sh) & 255) * k) << sh;
+  return `#${(mix(16) | mix(8) | mix(0)).toString(16).padStart(6, '0')}`;
+};
 
 const PALE = '#f1f2f5';
 
@@ -34,7 +41,7 @@ export interface Overlay {
 export function stateDiagram(s: CubeState, mode: DiagramMode, overlay?: Overlay, only?: (pos: Vec) => boolean): SVGSVGElement {
   const top = s.centerColor('U');
   const paint = (c: Color | null, pos?: Vec) =>
-    !c ? GREY : only ? (pos && (only(pos) || (pos[0] === 0 && pos[2] === 0)) ? FILL[c] : GREY) : mode === 'pll' ? FILL[c] : c === top ? FILL[c] : GREY;
+    !c ? GREY : only ? (pos && (only(pos) || (pos[0] === 0 && pos[2] === 0)) ? FILL[c] : fade(FILL[c])) : mode === 'pll' ? FILL[c] : c === top ? FILL[c] : GREY;
   const isCorner = (pos: Vec) => pos[0] !== 0 && pos[2] !== 0;
   const ns = 'http://www.w3.org/2000/svg';
   const svg = document.createElementNS(ns, 'svg');
@@ -78,7 +85,7 @@ export function stateDiagram(s: CubeState, mode: DiagramMode, overlay?: Overlay,
 const BLUE = '#1b4fb8';
 
 /**
- * 好朋友回家的俯视图：只给这一对好朋友上色（全彩模式下全部上色，要自己找），
+ * 好朋友回家的俯视图：这一对好朋友正常颜色，别的块淡很多（全彩模式下全部正常，要自己找），
  * 角上的小方块是它们的家，两半涂成家两边的颜色。
  */
 export function pairDiagram(s: CubeState, slot: string, full = false): SVGSVGElement {
@@ -166,7 +173,7 @@ function drawOverlay(svg: SVGSVGElement, ov: Overlay, boxes: Map<string, [number
 
 /**
  * 立体小图（看得见上、前、右三面），给好朋友回家用：
- * 只给要看的块（和中心块）上色，其他都是灰的，一眼看出这对好朋友在哪、白色朝哪。
+ * 要看的块（和中心块）是正常颜色，其他块颜色淡很多，一眼看出这对好朋友在哪、白色朝哪。
  */
 export function isoDiagram(s: CubeState, show: string[], home: Vec[] = []): SVGSVGElement {
   const ns = 'http://www.w3.org/2000/svg';
@@ -189,7 +196,7 @@ export function isoDiagram(s: CubeState, show: string[], home: Vec[] = []): SVGS
         const c = s.at(pos);
         const isCenter = pos.filter((v) => v !== 0).length === 1;
         const col = s.colorAt(pos, face);
-        const fill = col && (isCenter || want.has(c.id)) ? FILL[col] : GREY;
+        const fill = !col ? GREY : isCenter || want.has(c.id) ? FILL[col] : fade(FILL[col]);
         const q = 0.46;
         const pts = [
           [i - q, j - q],

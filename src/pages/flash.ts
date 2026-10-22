@@ -77,7 +77,7 @@ function flashGame(root: HTMLElement, cfg: FlashConfig): () => void {
   const recentBox = h('div', null, recent(cfg.id));
   const bar = actionBar();
   const fullBtn = h('button', { class: 'chip', type: 'button' });
-  const syncFull = () => (fullBtn.textContent = full ? '难一点：全部上色，自己找好朋友' : '简单：只给好朋友上色');
+  const syncFull = () => (fullBtn.textContent = full ? '难一点：颜色都一样亮，自己找好朋友' : '简单：好朋友最亮，别的块淡');
   syncFull();
   fullBtn.onclick = () => {
     full = !full;
@@ -227,7 +227,7 @@ export function seeGame(root: HTMLElement): () => void {
     title: '一眼认',
     intro: '角上带颜色的小方块是好朋友的家。看一眼，按数字说出这是哪一家！',
     parent:
-      '<b>练什么：</b>F2L 快不快，先看"认出情况"要几秒。家（槽）随机在四个角，顶层也随机拨过，但魔方不转：孩子要学会不管家在哪，都能一眼认出是哪一家。<br><b>目标：</b>平均 1 秒以内（绿色）。"难一点"会把所有块都上色，要自己先找到这对好朋友，更像真魔方。<br>答错会念出正确的一家和怎么认。',
+      '<b>练什么：</b>F2L 快不快，先看"认出情况"要几秒。家（槽）随机在四个角，顶层也随机拨过，但魔方不转：孩子要学会不管家在哪，都能一眼认出是哪一家。<br><b>目标：</b>平均 1 秒以内（绿色）。"难一点"会让所有块都一样亮，要自己先找到这对好朋友，更像真魔方。<br>答错会念出正确的一家和怎么认。',
     next(full) {
       const r = seeRound();
       const fam = r.family;

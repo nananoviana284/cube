@@ -13,6 +13,12 @@ const PALETTE: Record<Color, number> = {
   R: 0xe0182d,
 };
 const DIM = 0x8d939e;
+/** 没被点亮的块：还是原来的颜色，只是淡很多（和真魔方一样有颜色，但不抢眼） */
+const fade = (c: number, k = 0.65) => {
+  const ch = (v: number, sh: number) => (v >> sh) & 255;
+  const mix = (sh: number) => Math.round(ch(c, sh) * (1 - k) + ch(DIM, sh) * k) << sh;
+  return mix(16) | mix(8) | mix(0);
+};
 const ARROW = 0xff3dbb;
 
 export type ViewPreset = 'front' | 'top' | 'low';
@@ -215,11 +221,12 @@ export class CubeView {
 
   private paint(): void {
     for (const cm of this.meshes) {
-      const lit = !this.highlighted || this.highlighted.has(cm.id);
+      // 中心块永远亮着：它告诉你这一面是什么颜色、家在哪
+      const lit = !this.highlighted || this.highlighted.has(cm.id) || cm.id.length === 1;
       const glow = this.glowing.has(cm.id);
       for (const s of cm.stickers) {
         const mat = s.mesh.material as THREE.MeshStandardMaterial;
-        mat.color.setHex(lit ? PALETTE[s.color] : DIM);
+        mat.color.setHex(lit ? PALETTE[s.color] : fade(PALETTE[s.color]));
         mat.emissive.setHex(glow ? 0x555555 : 0x000000);
       }
     }
