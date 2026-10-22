@@ -105,8 +105,7 @@ export function bookPage(root: HTMLElement): () => void {
     h('div', { class: 'sheet-head' }, h('div', null, pvName, pvLook), h('button', { class: 'sheet-close', type: 'button', 'aria-label': '关闭', onclick: () => closeSheet() }, icon('close', 20))),
     st.el,
     algBox,
-    h('label', { class: 'nick-field' }, '我们家叫它', nick),
-    h('div', { class: 'btn-row' }, keyBtn('btn green', '再看一遍', '空格', () => play(selected), 'replay')),
+    h('div', { class: 'pv-row' }, h('label', { class: 'nick-field' }, '我们家叫它', nick), keyBtn('btn green', '再看一遍', '空格', () => play(selected), 'replay')),
   );
   const closeSheet = () => {
     preview.classList.remove('open');

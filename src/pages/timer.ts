@@ -96,7 +96,10 @@ export function timerPage(root: HTMLElement): () => void {
         h('div', { class: cls }, h('div', { class: 'k' }, k), h('div', { class: 'v' }, v === null ? '—' : k === '一共' ? `${v} 次` : fmt(v))),
       ),
     );
-    chartBox.replaceChildren(h('figcaption', { class: 'muted' }, '最近 40 次 · 越往下越快'), chart(ss));
+    chartBox.replaceChildren(
+      h('figcaption', { class: 'muted' }, '最近 40 次 · 越往下越快'),
+      ss.length >= 2 ? chart(ss) : h('p', { class: 'muted chart-empty' }, '计时两次以上，这里就会画出你的进步线。'),
+    );
   };
   const tickRun = () => {
     time.textContent = fmt(performance.now() - t0);

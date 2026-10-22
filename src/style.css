@@ -975,6 +975,8 @@ body.parent-on .parent-note {
   display: grid;
   grid-template-columns: 390px minmax(0, 1fr);
   gap: 24px;
+  /* 电脑上填满页签上面的空间：地图四行、继续卡片跟着窗口变高 */
+  flex: 1;
 }
 .continue-card {
   border-radius: 32px;
@@ -1019,6 +1021,8 @@ body.parent-on .parent-note {
 .cc-cube {
   flex: 1;
   min-height: 190px;
+  max-height: 320px;
+  margin-block: auto;
   min-width: 0;
   overflow: hidden;
 }
@@ -1050,6 +1054,7 @@ body.parent-on .parent-note {
   box-shadow: var(--shadow);
   display: flex;
   flex-direction: column;
+  container-type: inline-size;
 }
 .map-head {
   display: flex;
@@ -1158,12 +1163,125 @@ body.parent-on .parent-note {
 .link.done {
   background: var(--isl);
 }
+/* 地图不够宽：岛名和圆点缩小一点，还是一行 */
+@container (max-width: 640px) {
+  .island-row {
+    gap: 12px;
+  }
+  .island-badge {
+    width: 132px;
+    gap: 8px;
+  }
+  .isl-ic {
+    width: 36px;
+    height: 36px;
+    border-radius: 11px;
+  }
+  .isl-ic svg {
+    width: 20px;
+    height: 20px;
+  }
+  .isl-name {
+    font-size: 16px;
+    white-space: nowrap;
+  }
+  .node-wrap {
+    width: 46px;
+  }
+  .node {
+    width: 46px;
+    height: 46px;
+    font-size: 20px;
+  }
+  .link {
+    margin-top: 20px;
+    min-width: 8px;
+  }
+}
+/* 地图很窄（手机）：岛名放上面，圆点排下面 */
+@container (max-width: 470px) {
+  .island-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+  .island-badge {
+    width: auto;
+  }
+  .island-badge > div {
+    flex: 1;
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+  }
+}
+/* 大屏：地图圆点和字跟着放大，把空间用起来 */
+@media (min-width: 1200px) and (min-height: 960px) {
+  .island-badge {
+    width: 186px;
+  }
+  .isl-ic {
+    width: 52px;
+    height: 52px;
+    border-radius: 16px;
+  }
+  .isl-name {
+    font-size: 20px;
+  }
+  .isl-prog {
+    font-size: 15px;
+  }
+  .node-wrap {
+    width: 68px;
+  }
+  .node {
+    width: 68px;
+    height: 68px;
+    font-size: 28px;
+  }
+  .link {
+    margin-top: 31px;
+    max-width: 96px;
+  }
+  .continue-card h2 {
+    font-size: 50px;
+  }
+}
+/* 窗口不太宽：继续卡片窄一点，留给地图 */
+@media (min-width: 701px) and (max-width: 1100px) {
+  .home-main {
+    grid-template-columns: 320px minmax(0, 1fr);
+  }
+  .continue-card h2 {
+    font-size: 36px;
+  }
+}
+/* 矮屏笔记本：首页收紧一点 */
+@media (min-width: 701px) and (max-height: 820px) {
+  .cc-cube {
+    min-height: 110px;
+  }
+  .continue-card {
+    padding: 20px 22px;
+  }
+  .continue-card h2 {
+    font-size: 36px;
+  }
+  .cc-start {
+    height: 68px;
+  }
+  .island-row {
+    padding: 10px 0;
+  }
+}
 
 /* ——— 小游戏 ——— */
 .games-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-auto-rows: minmax(210px, 1fr);
   gap: 20px;
+  flex: 1;
 }
 .game-card {
   text-decoration: none;
@@ -1273,7 +1391,7 @@ input[type='range'] {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 330px;
   gap: 20px;
-  align-items: start;
+  flex: 1;
 }
 .timer-main {
   display: flex;
@@ -1311,6 +1429,7 @@ input[type='range'] {
 .timer-face {
   position: relative;
   width: 100%;
+  flex: 1;
   min-height: 46dvh;
   border-radius: 32px;
   background: var(--card);
@@ -1411,6 +1530,19 @@ input[type='range'] {
   height: 160px;
   display: block;
   margin-top: 8px;
+}
+.timer-aside .chart {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+.chart-empty {
+  margin: auto 0;
+  text-align: center;
+}
+.timer-aside .chart svg {
+  flex: 1;
+  min-height: 160px;
 }
 .chips {
   display: flex;
@@ -1558,24 +1690,34 @@ input[type='range'] {
 }
 .book-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 340px;
+  /* 公式排成一列，宽度让给右边的魔方 */
+  grid-template-columns: minmax(0, 1fr) minmax(380px, 46%);
   gap: 20px;
   align-items: start;
 }
 .book-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 14px;
+  grid-template-columns: 1fr;
+  gap: 10px;
 }
 .book-card {
   background: var(--card);
-  border-radius: 24px;
+  border-radius: 22px;
   box-shadow: var(--shadow-s);
-  padding: 14px;
+  padding: 12px 14px;
   display: flex;
-  flex-direction: column;
-  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
   min-width: 0;
+}
+.book-card .book-head {
+  flex: 1 1 260px;
+  min-width: 0;
+}
+.book-card .book-foot {
+  margin-top: 0;
+  flex: none;
 }
 .book-card.sel {
   box-shadow: inset 0 0 0 3px var(--blue), 0 4px 0 #b9cdf6;
@@ -1587,8 +1729,8 @@ input[type='range'] {
 }
 .book-head .diagram,
 .book-emoji {
-  width: 72px;
-  height: 72px;
+  width: 60px;
+  height: 60px;
   flex: none;
 }
 .book-emoji {
@@ -1671,6 +1813,8 @@ input[type='range'] {
 .book-preview {
   position: sticky;
   top: 16px;
+  max-height: calc(100dvh - 120px);
+  overflow-y: auto;
   background: var(--card);
   border-radius: 28px;
   box-shadow: var(--shadow-s);
@@ -1686,7 +1830,49 @@ input[type='range'] {
   background: var(--ground);
   box-shadow: none;
   border-radius: 22px;
-  max-height: 300px;
+  /* 魔方尽量大，但整块演示要放得进一屏 */
+  /* 演示区一开始就要整块露在页签上面 */
+  max-height: calc(100dvh - 470px);
+  min-height: 260px;
+}
+.pv-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px;
+}
+.pv-row .nick-field {
+  flex: 1 1 140px;
+  min-width: 0;
+}
+.pv-row .btn {
+  flex: none;
+  min-height: 52px;
+  font-size: 19px;
+}
+/* 公式本里的指令牌做成小角标，不挡魔方 */
+.book-preview .move-tag {
+  left: 12px;
+  top: 12px;
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 4px 12px;
+  border-radius: 14px;
+}
+.book-preview .move-tag b {
+  font-size: 26px;
+  line-height: 1.2;
+}
+.book-preview .move-tag small {
+  font-size: 13px;
+}
+.book-preview .alg {
+  font-size: 26px;
+}
+.book-preview .alg .tok {
+  padding: 2px 12px;
 }
 .sheet-head {
   display: flex;
@@ -2199,6 +2385,7 @@ body.parent-mode #app {
 
   .games-grid {
     grid-template-columns: 1fr;
+    grid-auto-rows: auto;
     gap: 12px;
   }
   .game-card {
@@ -2320,6 +2507,9 @@ body.parent-mode #app {
     grid-template-columns: 1fr;
     gap: 12px;
   }
+  .book-card .book-foot {
+    flex: 1 1 100%;
+  }
   .book-head .diagram,
   .book-emoji {
     width: 56px;
@@ -2354,7 +2544,13 @@ body.parent-mode #app {
     transform: none;
   }
   .book-preview .stage {
-    height: 240px;
+    /* 手机上弹层给魔方更多高度 */
+    height: min(48dvh, 420px);
+    max-height: none;
+    min-height: 0;
+  }
+  .book-preview .alg {
+    font-size: 21px;
   }
   .sheet-grip {
     display: block;
