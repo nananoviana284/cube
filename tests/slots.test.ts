@@ -32,7 +32,7 @@ describe('four slots', () => {
   it('inverse helper sanity', () => expect(invertAlg("L' U' L")).toBe("L' U L"));
 });
 
-import { OLL_CORNERS, OLL_EDGES, PLL_EDGES } from '../src/content/algs';
+import { OLL_CORNERS, OLL_EDGES, PLL_CORNERS, PLL_EDGES } from '../src/content/algs';
 import { LESSONS } from '../src/content/lessons';
 import type { CubeState } from '../src/cube/model';
 
@@ -73,5 +73,46 @@ describe('door lesson claims', () => {
   it('every lesson id is unique', () => {
     const ids = LESSONS.map((l) => l.id);
     expect(new Set(ids).size).toBe(ids.length);
+  });
+});
+
+describe('yellow cross claims', () => {
+  const EDGE_POS = ['UF', 'UR', 'UB', 'UL'].map((id) => stateFrom('').byId(id).home);
+  const upMask = (s: CubeState) => EDGE_POS.map((p) => s.colorAt(p, 'U') === s.centerColor('U'));
+  const upEdges = (s: CubeState) => upMask(s).filter(Boolean).length;
+  const algs = [...OLL_EDGES, ...OLL_CORNERS].map((c) => c.alg);
+  it('yellow edges facing up are always 0, 2 or 4', () => {
+    for (let i = 0; i < 200; i++) {
+      const seq = Array.from({ length: 4 }, (_, j) => `${algs[(i * 7 + j * 3) % algs.length]} ${['', 'U', 'U2', "U'"][(i + j) % 4]}`).join(' ');
+      expect(upEdges(stateFrom(seq)) % 2).toBe(0);
+    }
+  });
+  it('a dot plus the line algorithm becomes an L, whatever the angle', () => {
+    const [line, L, dot] = ['line', 'L', 'dot'].map((id) => OLL_EDGES.find((c) => c.id === id)!);
+    for (const auf of ['', 'U', 'U2', "U'"]) {
+      const s = stateFrom(`${invertAlg(dot.alg)} ${auf}`);
+      expect(upEdges(s)).toBe(0);
+      applyAlg(s, line.alg);
+      const m = upMask(s);
+      expect(upEdges(s)).toBe(2);
+      expect((m[0] && m[2]) || (m[1] && m[3])).toBe(false);
+    }
+    const s = stateFrom(invertAlg(dot.alg));
+    for (const st of dot.chain!) applyAlg(s, st.moves);
+    expect(upEdges(s)).toBe(4);
+    expect(L.alg).toBe(dot.chain![2].moves);
+  });
+  it('H chain: one sune leaves a sune case, the second solves it', () => {
+    const H = OLL_CORNERS.find((c) => c.id === 'H')!;
+    const s = stateFrom(invertAlg(H.alg));
+    applyAlg(s, H.chain![0].moves);
+    expect(s.isSolved()).toBe(false);
+    expect(applyAlg(s.clone(), oc('sune')).isSolved()).toBe(true);
+    applyAlg(s, H.chain![1].moves);
+    expect(s.isSolved()).toBe(true);
+  });
+  it('every rel points at a real formula', () => {
+    const keys = new Set([...OLL_EDGES.map((c) => `oe-${c.id}`), ...OLL_CORNERS.map((c) => `oc-${c.id}`), ...[...PLL_CORNERS, ...PLL_EDGES].map((c) => `p-${c.id}`)]);
+    for (const c of [...OLL_EDGES, ...OLL_CORNERS, ...PLL_CORNERS, ...PLL_EDGES]) for (const r of c.rel ?? []) expect(keys.has(r.to)).toBe(true);
   });
 });

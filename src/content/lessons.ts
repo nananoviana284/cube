@@ -556,8 +556,31 @@ export const LESSONS: Lesson[] = [
     goal: '一眼认出点、拐弯、一字',
     minutes: 6,
     parent: '黄十字只有 3 种情况：一个点、小拐弯、一字。关键是"摆放方向"：一字横着放、拐弯放左后方。让孩子先说"这是哪种、要怎么摆"，再动手。',
-    secret: '黄十字只有 3 种：一个点、小拐弯、一字。先认出是哪一种，再摆好方向：一字横着放，拐弯放在左后面。摆对了，做一次就好。',
+    secret: '黄十字这一步只看 4 个棱块，角块不管。棱块总是两个两个翻，所以只有 3 种：一个点、小拐弯、一字。一个点不用怕：做一次一字的公式，它就变成小拐弯了。',
     scenes: [
+      {
+        kind: 'talk',
+        say: '做黄十字的时候，只看亮着的这 4 个棱块，角块先不管。角块再乱，也不影响这一步！',
+        setup: () => llScramble(OLL_EDGES[2].alg),
+        view: 'top',
+        highlight: ['U', 'UF', 'UB', 'UL', 'UR'],
+      },
+      {
+        kind: 'quiz',
+        say: '猜一猜：4 个棱块里，有可能只有 1 个黄色朝上吗？',
+        view: 'top',
+        options: [
+          { label: '不可能，黄色朝上的总是 0 个、2 个或 4 个', ok: true },
+          { label: '可能', ok: false },
+        ],
+      },
+      {
+        kind: 'talk',
+        say: '魔方的秘密：棱块翻面总是两个两个一起翻。所以黄色朝上的棱块只有 0 个、2 个、4 个。0 个是一个点，2 个是小拐弯或一字，4 个就是十字。所以只有 3 种！',
+        setup: () => llScramble(OLL_EDGES[0].alg),
+        view: 'top',
+        highlight: ['U', 'UF', 'UB', 'UL', 'UR'],
+      },
       ...OLL_EDGES.map(
         (c): Scene => ({
           kind: 'watch',

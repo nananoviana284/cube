@@ -8,6 +8,7 @@ import { runDrill } from '../ui/drill';
 import { starsPill } from './home';
 import { setKeys } from '../ui/keys';
 import { icon, type IconName } from '../ui/icons';
+import { firstGame, seeGame } from './flash';
 
 const sec = (v: number) => `${(v / 1000).toFixed(1)} 秒`;
 
@@ -24,6 +25,8 @@ export interface Game {
 
 /** 第一个是"今天推荐"，大卡片 */
 export const GAMES: Game[] = [
+  { id: 'see', icon: 'eye', name: '一眼认', desc: '好朋友回家：家在哪都一眼认出是哪一家', soft: '#DDF3E4', ink: '#0B7F3E', best: (v) => `最好 平均 ${sec(v)}` },
+  { id: 'first', icon: 'key', name: '第一步', desc: '不转魔方：先拨几下，开哪扇门？', soft: '#E1EBFD', ink: '#1B4FB8', best: (v) => `最好 平均 ${sec(v)}` },
   { id: 'f2l', icon: 'pair', name: '好朋友回家练习场', desc: '拿真魔方，一组 5 个，看看平均几秒', soft: '#DDF3E4', ink: '#0B7F3E', best: (v) => `最好 平均 ${sec(v)}` },
   { id: 'track', icon: 'search', name: '跟踪小侦探', desc: '眼睛跟住一个方块', soft: '#E1EBFD', ink: '#1B4FB8', best: (v) => `最好：第 ${v} 关` },
   { id: 'friend', icon: 'people', name: '快找好朋友', desc: '5 对好朋友，比比谁快', soft: '#DDF3E4', ink: '#0B7F3E', best: (v) => `最好：${sec(v)}` },
@@ -461,6 +464,10 @@ export function gamePage(root: HTMLElement, id: string): () => void {
   }
   logToday('game');
   switch (id) {
+    case 'see':
+      return seeGame(root);
+    case 'first':
+      return firstGame(root);
     case 'track':
       return trackGame(root);
     case 'friend':

@@ -14,7 +14,7 @@ const FOLLOW_MAX = 14;
 export function lessonPage(root: HTMLElement, id: string): () => void {
   const lesson = lessonById(id);
   if (!lesson) {
-    location.hash = '#/';
+    location.hash = '#/learn';
     return () => {};
   }
   save((d) => (d.lastLesson = lesson.id));
@@ -32,9 +32,9 @@ export function lessonPage(root: HTMLElement, id: string): () => void {
   const bar = actionBar();
   const island = ISLANDS.find((i) => i.id === lesson.island)!;
   const no = lessonsOf(lesson.island).findIndex((l) => l.id === lesson.id) + 1;
-  const toMap = () => (location.hash = '#/');
+  const toMap = () => (location.hash = '#/learn');
   root.append(
-    activityHeader({ title: lesson.title, sub: `${island.name} · 第 ${no} 关`, exitHref: '#/', below: prog.el }),
+    activityHeader({ title: lesson.title, sub: `${island.name} · 第 ${no} 课`, exitHref: '#/learn', below: prog.el }),
     h('div', { class: 'player' }, st.el, side),
     bar.el,
   );
@@ -383,21 +383,21 @@ export function lessonPage(root: HTMLElement, id: string): () => void {
     giveStars(lesson!.id, stars);
     logToday('lesson');
     prog.set(scenes.length);
-    celebrate('闯关成功！');
+    celebrate('学完啦！');
     const i = LESSONS.findIndex((l) => l.id === lesson!.id);
     const nextLesson = LESSONS[i + 1];
-    speak(`闯关成功！你得到了 ${stars} 颗星星。按空格，${nextLesson ? '去下一关' : '回首页'}。`);
+    speak(`学完啦！你得到了 ${stars} 颗星星。按空格，${nextLesson ? '去下一课' : '回到原理'}。`);
     const again = () => {
       mistakes = 0;
       goto(0);
     };
-    const toNext = () => (location.hash = nextLesson ? `#/lesson/${nextLesson.id}` : '#/');
+    const toNext = () => (location.hash = nextLesson ? `#/lesson/${nextLesson.id}` : '#/learn');
     side.replaceChildren(
       h(
         'div',
         { class: 'finish' },
         starRow(stars, 3, 96),
-        h('h2', null, '闯关成功！'),
+        h('h2', null, '学完啦！'),
         h('p', { class: 'muted' }, `${load().kidName}，今天学会了：${lesson!.goal}`),
         coach(lesson!.secret, { secret: true }).el,
       ),
@@ -406,8 +406,8 @@ export function lessonPage(root: HTMLElement, id: string): () => void {
     bar.set({
       items: [
         { label: '再玩一次', key: '⌫', kind: 'ghost', icon: 'replay', onclick: again },
-        { label: '回地图', key: 'Esc', kind: 'ghost', icon: 'map', onclick: toMap },
-        { label: nextLesson ? `下一关：${nextLesson.title}` : '回首页', key: '空格', kind: 'green', icon: 'right', onclick: toNext },
+        { label: '回原理', key: 'Esc', kind: 'ghost', icon: 'map', onclick: toMap },
+        { label: nextLesson ? `下一课：${nextLesson.title}` : '回到原理', key: '空格', kind: 'green', icon: 'right', onclick: toNext },
       ],
     });
     view.setAlg('');

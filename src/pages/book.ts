@@ -1,11 +1,11 @@
-import { invertAlg } from '../cube/alg';
 import { mirrorAlg } from '../content/slots';
-import { F2L_CASES, OLL_CORNERS, OLL_EDGES, PLL_CORNERS, PLL_EDGES, joinSteps } from '../content/algs';
+import { F2L_CASES, OLL_CORNERS, OLL_EDGES, PLL_CORNERS, PLL_EDGES, joinSteps, type Step } from '../content/algs';
 import { load, save } from '../store';
 import { beep, h } from '../ui/dom';
-import { topDiagram } from '../ui/diagram';
-import { algView, keyBtn, pageHeader, playWithArrows, stage, tabbar } from '../ui/components';
-import { icon } from '../ui/icons';
+import { invertAlg, stateFrom } from '../cube/alg';
+import { effectOf } from '../content/effect';
+import { isoDiagram, stateDiagram, type DiagramMode } from '../ui/diagram';
+import { kbd, pageHeader, parentLock, tabbar } from '../ui/components';
 import { setKeys } from '../ui/keys';
 
 export interface BookEntry {
@@ -15,9 +15,13 @@ export interface BookEntry {
   emoji: string;
   look: string;
   alg: string;
-  diagram?: 'oll' | 'pll';
+  diagram?: DiagramMode;
   /** 亲戚：和别的公式的关系 */
   kin?: string;
+  chain?: Step[];
+  rel?: { label: string; to: string }[];
+  /** F2L：每一步在做什么 */
+  steps?: Step[];
 }
 
 export const BOOK: BookEntry[] = [
@@ -28,11 +32,12 @@ export const BOOK: BookEntry[] = [
     emoji: c.emoji,
     look: c.look,
     alg: joinSteps(c.steps),
+    steps: c.steps,
     kin: `照镜子（家在左前）：${mirrorAlg(joinSteps(c.steps))}`,
   })),
-  ...OLL_EDGES.map((c) => ({ key: `oe-${c.id}`, group: 'OLL 第一步：黄十字', name: c.name, emoji: c.emoji, look: c.look, alg: c.alg, kin: c.kin, diagram: 'oll' as const })),
-  ...OLL_CORNERS.map((c) => ({ key: `oc-${c.id}`, group: 'OLL 第二步：顶面全黄', name: c.name, emoji: c.emoji, look: c.look, alg: c.alg, kin: c.kin, diagram: 'oll' as const })),
-  ...[...PLL_CORNERS, ...PLL_EDGES].map((c) => ({ key: `p-${c.id}`, group: 'PLL：侧面排好', name: c.name, emoji: c.emoji, look: c.look, alg: c.alg, kin: c.kin, diagram: 'pll' as const })),
+  ...OLL_EDGES.map((c) => ({ key: `oe-${c.id}`, group: 'OLL 第一步：黄十字', name: c.name, emoji: c.emoji, look: c.look, alg: c.alg, kin: c.kin, chain: c.chain, rel: c.rel, diagram: 'edges' as const })),
+  ...OLL_CORNERS.map((c) => ({ key: `oc-${c.id}`, group: 'OLL 第二步：顶面全黄', name: c.name, emoji: c.emoji, look: c.look, alg: c.alg, kin: c.kin, chain: c.chain, rel: c.rel, diagram: 'oll' as const })),
+  ...[...PLL_CORNERS, ...PLL_EDGES].map((c) => ({ key: `p-${c.id}`, group: 'PLL：侧面排好', name: c.name, emoji: c.emoji, look: c.look, alg: c.alg, kin: c.kin, chain: c.chain, rel: c.rel, diagram: 'pll' as const })),
 ];
 
 export const LEVELS = [
@@ -63,23 +68,23 @@ export function rater(key: string, onChange?: () => void): HTMLElement {
   return row;
 }
 
-/** 分组名字和颜色，和闯关地图的岛一致 */
-const GROUP_LOOK: Record<string, [string, string]> = {
+/** 分组名字和颜色，和原理地图的岛一致 */
+export const GROUP_LOOK: Record<string, [string, string]> = {
   'F2L 好朋友回家': ['好朋友回家', '#12A150'],
   'OLL 第一步：黄十字': ['黄十字', '#E5383B'],
   'OLL 第二步：顶面全黄': ['顶面全黄', '#E5383B'],
   'PLL：侧面排好': ['侧面排好', '#E5383B'],
 };
 
-const nameOf = (e: BookEntry) => load().nick[e.key] || e.name;
+export const nameOf = (e: BookEntry) => load().nick[e.key] || e.name;
 
-/** 公式本：分组看卡片——图、公式、会不会；点"看"在右边（手机上从底部弹出）演示 */
+// 回到公式本时停在原来那一组
+let group = BOOK[0].group;
+let onlyWeak = false;
+
+/** 公式本（首页）：分组看一格一格的情况图；点一格进详情页 */
 export function bookPage(root: HTMLElement): () => void {
   const groups = [...new Set(BOOK.map((b) => b.group))];
-  let group = groups[0];
-  let onlyWeak = false;
-  let selected: BookEntry = BOOK[0];
-  let playGen = 0;
 
   // 顶部：会了 / 还不熟 / 不会 / 没打分
   const summary = h('div', { class: 'skill-bar' });
@@ -101,68 +106,12 @@ export function bookPage(root: HTMLElement): () => void {
     );
   };
 
-  // 演示区
-  const st = stage('top');
-  const { view } = st;
-  const pvName = h('div', { class: 'book-name' });
-  const pvLook = h('div', { class: 'book-look' });
-  const algBox = h('div');
-  const pvKin = h('div', { class: 'book-kin' });
-  const nick = h('input', { type: 'text', placeholder: '比如：大眼睛' }) as HTMLInputElement;
-  const backdrop = h('div', { class: 'sheet-backdrop' });
-  const preview = h(
-    'aside',
-    { class: 'book-preview', 'aria-label': '演示' },
-    h('span', { class: 'sheet-grip', 'aria-hidden': 'true' }),
-    h('div', { class: 'sheet-head' }, h('div', null, pvName, pvLook), h('button', { class: 'sheet-close', type: 'button', 'aria-label': '关闭', onclick: () => closeSheet() }, icon('close', 20))),
-    st.el,
-    algBox,
-    pvKin,
-    h('div', { class: 'pv-row' }, h('label', { class: 'nick-field' }, '我们家叫它', nick), keyBtn('btn green', '再看一遍', '空格', () => play(selected), 'replay')),
-  );
-  const closeSheet = () => {
-    preview.classList.remove('open');
-    backdrop.classList.remove('open');
-  };
-  backdrop.onclick = closeSheet;
-  nick.onchange = () => {
-    save((d) => (d.nick[selected.key] = nick.value.trim()));
-    pvName.textContent = nameOf(selected);
-    renderGrid();
-  };
-
-  const pose = (e: BookEntry) => {
-    const isF2L = e.key.startsWith('f2l');
-    view.setPreset(isF2L ? 'front' : 'top');
-    view.setAlg(invertAlg(e.alg));
-    view.highlight(isF2L ? ['DFR', 'FR'] : null);
-    pvName.textContent = nameOf(e);
-    pvLook.textContent = e.look;
-    pvKin.textContent = e.kin ? `亲戚：${e.kin}` : '';
-    nick.value = load().nick[e.key] ?? '';
-    const av = algView(e.alg);
-    algBox.replaceChildren(av.el);
-    return av;
-  };
-  const play = async (e: BookEntry) => {
-    const my = ++playGen;
-    const av = pose(e);
-    await new Promise((r) => setTimeout(r, 600));
-    if (my !== playGen) return;
-    await playWithArrows(view, e.alg, (i) => my === playGen && av.at(i), 300);
-  };
-  const show = (e: BookEntry) => {
-    selected = e;
-    renderGrid();
-    preview.classList.add('open');
-    backdrop.classList.add('open');
-    play(e);
-  };
+  const open = (e: BookEntry) => (location.hash = `#/f/${e.key}`);
 
   const tabs = h('div', { class: 'book-tabs', role: 'tablist', 'aria-label': '公式分组' });
   const syncTabs = () =>
     tabs.replaceChildren(
-      ...groups.map((g) => {
+      ...groups.map((g, i) => {
         const [label, color] = GROUP_LOOK[g] ?? [g, '#5A5F7A'];
         const count = BOOK.filter((b) => b.group === g).length;
         return h(
@@ -172,14 +121,11 @@ export function bookPage(root: HTMLElement): () => void {
             type: 'button',
             role: 'tab',
             'aria-selected': String(g === group),
-            onclick: () => {
-              group = g;
-              syncTabs();
-              renderGrid();
-            },
+            onclick: () => pickGroup(i),
           },
           h('i', { style: `background:${color}` }),
           `${label} ${count}`,
+          kbd(String(i + 1)),
         );
       }),
       h(
@@ -197,53 +143,55 @@ export function bookPage(root: HTMLElement): () => void {
         '只看"不会"的',
       ),
     );
+  const pickGroup = (i: number) => {
+    if (!groups[i]) return;
+    group = groups[i];
+    syncTabs();
+    renderGrid();
+  };
 
   const grid = h('div', { class: 'book-grid' });
   function renderGrid(): void {
     const sk = load().skills;
     const list = BOOK.filter((b) => b.group === group && (!onlyWeak || sk[b.key] === 0));
-    grid.replaceChildren(
-      ...(list.length ? [] : [h('p', { class: 'muted' }, '这一组没有"不会"的，真棒！')]),
-      ...list.map((e) =>
-        h(
-          'article',
-          { class: e === selected ? 'book-card sel' : 'book-card' },
-          h(
-            'div',
-            { class: 'book-head' },
-            e.diagram ? topDiagram(e.alg, e.diagram) : h('div', { class: 'book-emoji', 'aria-hidden': 'true' }, icon('pair', 34)),
-            h('div', { class: 'book-meta' }, h('div', { class: 'book-name' }, nameOf(e)), h('div', { class: 'book-look' }, e.look), h('div', { class: 'book-alg' }, e.alg), e.kin ? h('div', { class: 'book-kin' }, `亲戚：${e.kin}`) : null),
-          ),
-          h(
-            'div',
-            { class: 'book-foot' },
-            rater(e.key, () => {
-              syncSummary();
-              if (onlyWeak) renderGrid();
-            }),
-            h('button', { class: 'look-btn', type: 'button', onclick: () => show(e), 'aria-label': `看${e.name}的动画` }, icon('play', 14), e === selected ? '正在看' : '看'),
-          ),
-        ),
-      ),
-    );
+    grid.replaceChildren(...(list.length ? [] : [h('p', { class: 'muted' }, '这一组没有"不会"的，真棒！')]), ...list.map((e) => tile(e, sk[e.key])));
   }
+  /** 一格一个公式：大图直接画出它的情况和效果，下面是名字 */
+  const tile = (e: BookEntry, lv: 0 | 1 | 2 | undefined) => {
+    const level = LEVELS.find((l) => l.v === lv);
+    return h(
+      'article',
+      {
+        class: `book-tile${level ? ` ${level.cls}` : ''}`,
+        tabindex: '0',
+        role: 'link',
+        'aria-label': `打开${nameOf(e)}`,
+        onclick: () => open(e),
+        onkeydown: (ev: KeyboardEvent) => ev.key === 'Enter' && open(e),
+      },
+      casePicture(e),
+      h('div', { class: 'tile-name' }, level ? h('i', { class: 'tile-dot', title: level.label }) : null, nameOf(e)),
+      h('div', { class: 'tile-alg' }, e.alg),
+    );
+  };
 
   syncSummary();
   syncTabs();
   renderGrid();
-  pose(selected);
-  setKeys({ space: () => play(selected), esc: () => (location.hash = '#/') });
-  root.append(
-    pageHeader('公式本', undefined, summary),
-    tabs,
-    h('main', { class: 'book-layout' }, grid, preview),
-    backdrop,
-    tabbar('book'),
-  );
-  return () => {
-    playGen++;
-    view.dispose();
-  };
+  setKeys({ '1': () => pickGroup(0), '2': () => pickGroup(1), '3': () => pickGroup(2), '4': () => pickGroup(3) });
+  root.append(pageHeader('公式本', '每个公式做了什么、为什么、遇到不同角度怎么办', summary, parentLock('center')), tabs, h('main', null, grid), tabbar('book'));
+  return () => {};
+}
+
+/**
+ * 这个公式的情况图：顶层公式画顶面，并叠上效果（打圈 = 会翻上来/拧正，箭头 = 去哪里，蓝框 = 认它要看的贴纸）；
+ * 好朋友回家画立体图，只给这对好朋友上色，虚线框是它们的家。
+ */
+export function casePicture(e: BookEntry): SVGSVGElement {
+  const s = stateFrom(invertAlg(e.alg));
+  if (!e.diagram) return isoDiagram(s, ['DFR', 'FR'], [[1, -1, 1], [1, 0, 1]]);
+  const ef = effectOf(s, e.diagram);
+  return stateDiagram(s, e.diagram, { spins: [...ef.flips, ...ef.twists], arrows: ef.moves, cues: ef.cues });
 }
 
 /** 把文字里的公式名字换成"家里的叫法（原名）" */
