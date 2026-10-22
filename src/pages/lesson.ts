@@ -18,6 +18,8 @@ export function lessonPage(root: HTMLElement, id: string): () => void {
     return () => {};
   }
   save((d) => (d.lastLesson = lesson.id));
+  // 最后一幕：把这一课的原理直接讲给孩子听
+  const scenes: Scene[] = [...lesson.scenes, { kind: 'talk', say: `🔑 今天的秘诀：${lesson.secret}`, secret: true }];
   let idx = 0;
   let mistakes = 0;
   let alive = true;
@@ -25,7 +27,7 @@ export function lessonPage(root: HTMLElement, id: string): () => void {
   let gen = 0;
   const st = stage('front');
   const { view } = st;
-  const dots = h('div', { class: 'dots' }, ...lesson.scenes.map(() => h('span')));
+  const dots = h('div', { class: 'dots' }, ...scenes.map(() => h('span')));
   const side = h('div', { class: 'side' });
   const islandHref = `#/island/${lesson.island}`;
   const toIsland = () => (location.hash = islandHref);
@@ -40,7 +42,7 @@ export function lessonPage(root: HTMLElement, id: string): () => void {
   const goto = (i: number) => {
     if (!alive) return;
     idx = Math.max(0, i);
-    if (idx >= lesson.scenes.length) finish();
+    if (idx >= scenes.length) finish();
     else show();
   };
   const next = () => goto(idx + 1);
@@ -80,9 +82,9 @@ export function lessonPage(root: HTMLElement, id: string): () => void {
     setDots();
     side.replaceChildren();
     st.cover(false);
-    const scene = lesson!.scenes[idx];
+    const scene = scenes[idx];
     const say = withNicks(scene.say);
-    side.append(h('div', { class: 'bubble' }, h('div', { class: 'who' }, '🧑‍🏫'), h('div', { class: 'txt big-say' }, say)));
+    side.append(h('div', { class: scene.kind === 'talk' && scene.secret ? 'bubble secret' : 'bubble' }, h('div', { class: 'who' }, '🧑‍🏫'), h('div', { class: 'txt big-say' }, say)));
     const spoken = speak(say);
     if (scene.kind !== 'real' && scene.kind !== 'drill') prep(scene);
     const parentBox = h('div', { class: 'parent-note' }, h('b', null, '家长说明：'), h('div', { html: lesson!.parent }));
@@ -340,6 +342,7 @@ export function lessonPage(root: HTMLElement, id: string): () => void {
         h('div', { class: 'stars' }, starsText(stars)),
         h('h2', null, '闯关成功！'),
         h('p', { class: 'muted' }, `${load().kidName}，今天学会了：${lesson!.goal}`),
+        h('div', { class: 'secret' }, `🔑 ${lesson!.secret}`),
         h(
           'div',
           { class: 'btn-row' },
@@ -349,7 +352,7 @@ export function lessonPage(root: HTMLElement, id: string): () => void {
         ),
       ),
     );
-    setKeys({ space: toNext, right: toNext, back: again, esc: toIsland });
+    setKeys({ space: toNext, right: toNext, back: again, esc: toIsland, voice: () => speak(`今天的秘诀：${lesson!.secret}`, true) });
     view.setAlg('');
     view.play('y y y y', 500, true);
   }
