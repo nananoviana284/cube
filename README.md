@@ -31,6 +31,6 @@ npm run build    # 生成 dist/
 - `src/cube/view.ts` three.js 3D 魔方：动画、转动箭头、点选方块、高亮
 - `src/content/algs.ts` 所有公式（每条都有测试验证）
 - `src/content/lessons.ts` 课程内容（场景：讲解 / 看动画 / 动手 / 点一点 / 选择题 / 真魔方）
-- `src/pages/` 各个页面
+- `src/pages/` 各个页面（`book.ts` 是公式本：家里的叫法 + 会不会打分）
 
-颜色约定：白色底、黄色顶、绿色前、橙色右。训练记录保存在浏览器 localStorage。
+颜色约定：白色底、黄色顶，默认绿色朝前（家长中心可以改成红色等其它颜色朝前）。电脑上可以用键盘转魔方（R、Shift+R、Alt+U）。训练记录保存在浏览器 localStorage。

@@ -67,6 +67,7 @@ export function homePage(root: HTMLElement): () => void {
     h(
       'div',
       { class: 'row' },
+      h('button', { class: 'tile', onclick: () => (location.hash = '#/book') }, h('span', { class: 'e' }, '📒'), h('span', null, '公式本', h('small', null, '会不会，自己打分'))),
       h('button', { class: 'tile', onclick: () => (location.hash = '#/timer') }, h('span', { class: 'e' }, '⏱️'), h('span', null, '计时器', h('small', null, '记录每一次还原'))),
       h('button', { class: 'tile', onclick: () => (location.hash = '#/lab') }, h('span', { class: 'e' }, '🧪'), h('span', null, '自由魔方', h('small', null, '输入公式看动画'))),
       h('button', { class: 'tile', onclick: () => (location.hash = '#/parent') }, h('span', { class: 'e' }, '👨‍👩‍👦'), h('span', null, '家长中心', h('small', null, '课表、进度、设置'))),

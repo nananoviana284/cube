@@ -1,4 +1,5 @@
 // 训练记录保存在本机浏览器里（localStorage）
+import type { Color } from './cube/model';
 
 export interface Solve {
   at: number;
@@ -21,6 +22,14 @@ export interface Data {
   practice: Record<string, number>;
   voice: boolean;
   speed: number;
+  /** 朝前的颜色（白底黄顶） */
+  front: Color;
+  /** 公式本打分：0 不会、1 还不熟、2 会了 */
+  skills: Record<string, 0 | 1 | 2>;
+  /** 家里给公式起的名字 */
+  nick: Record<string, string>;
+  /** 每天练习分钟数 */
+  dailyMinutes: number;
 }
 
 const KEY = 'cube-coach-v1';
@@ -36,6 +45,10 @@ function defaults(): Data {
     practice: {},
     voice: true,
     speed: 420,
+    front: 'G',
+    skills: {},
+    nick: {},
+    dailyMinutes: 60,
   };
 }
 

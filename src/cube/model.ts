@@ -25,6 +25,18 @@ export const HOME_COLOR: Record<Face, Color> = {
   L: 'R',
 };
 
+const SIDE_RING: Color[] = ['G', 'O', 'B', 'R'];
+
+/** 白底黄顶不变，换"朝前的颜色"（例如学过桥式法的孩子习惯红色朝前） */
+export function setFrontColor(front: Color): void {
+  const i = SIDE_RING.indexOf(front);
+  if (i < 0) return;
+  HOME_COLOR.F = SIDE_RING[i];
+  HOME_COLOR.R = SIDE_RING[(i + 1) % 4];
+  HOME_COLOR.B = SIDE_RING[(i + 2) % 4];
+  HOME_COLOR.L = SIDE_RING[(i + 3) % 4];
+}
+
 export const COLOR_NAME: Record<Color, string> = {
   W: '白',
   Y: '黄',
@@ -33,6 +45,11 @@ export const COLOR_NAME: Record<Color, string> = {
   O: '橙',
   R: '红',
 };
+
+/** 某个面老家的颜色名字，例如 faceName('F') === '绿' */
+export function faceName(f: Face): string {
+  return COLOR_NAME[HOME_COLOR[f]];
+}
 
 const IDENTITY: Mat = [1, 0, 0, 0, 1, 0, 0, 0, 1];
 

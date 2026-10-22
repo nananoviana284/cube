@@ -1,5 +1,5 @@
 import { invertAlg, randomScramble } from '../cube/alg';
-import type { CubeState } from '../cube/model';
+import { faceName as C, type CubeState } from '../cube/model';
 import { F2L_CASES, OLL_CORNERS, OLL_EDGES, PLL_CORNERS, PLL_EDGES, joinSteps, type F2LCase, type Step } from './algs';
 import { pick } from '../ui/dom';
 
@@ -153,11 +153,11 @@ export const LESSONS: Lesson[] = [
       },
       {
         kind: 'quiz',
-        say: '白绿橙这个角块，它的家在哪里？提示：看中心块的颜色。',
+        say: `白${C('F')}${C('R')}这个角块，它的家在哪里？提示：看中心块的颜色。`,
         setup: '',
         highlight: ['DFR'],
         options: [
-          { label: '白色、绿色、橙色三个面中间', ok: true },
+          { label: `白色、${C('F')}色、${C('R')}色三个面中间`, ok: true },
           { label: '哪里都可以', ok: false },
         ],
       },
@@ -215,7 +215,7 @@ export const LESSONS: Lesson[] = [
     parent:
       'F2L 的第一步是"配对"：底层角块(含白色)和它上面的棱块是一对。规则很简单：角块去掉白色剩下的两种颜色，就是好朋友棱块的颜色。这个"找朋友"练熟了，后面的观察/预判才有基础。',
     scenes: [
-      { kind: 'talk', say: '白绿橙角块和绿橙棱块是一对好朋友。它们要一起回家，回到绿色和橙色中间。', setup: '', highlight: SLOT_PIECES },
+      { kind: 'talk', say: `白${C('F')}${C('R')}角块和${C('F')}${C('R')}棱块是一对好朋友。它们要一起回家，回到${C('F')}色和${C('R')}色中间。`, setup: '', highlight: SLOT_PIECES },
       { kind: 'talk', say: '秘诀：角块去掉白色，剩下两个颜色，就是好朋友的颜色！', setup: caseSetup(caseById('b1')), highlight: SLOT_PIECES },
       {
         kind: 'pick',

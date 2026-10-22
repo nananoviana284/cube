@@ -1,8 +1,10 @@
 import { parseAlg } from '../cube/alg';
+import { faceName } from '../cube/model';
 import type { CubeState } from '../cube/model';
 import { LESSONS, lessonById, resolveSetup, type Goal, type Scene } from '../content/lessons';
 import { giveStars, load } from '../store';
 import { beep, celebrate, h, speak, starsText, stopSpeak } from '../ui/dom';
+import { withNicks } from './book';
 import { algView, bubble, movePad, playWithArrows, stage, topbar, wait } from '../ui/components';
 
 export function checkGoal(s: CubeState, g: Goal): boolean {
@@ -76,8 +78,9 @@ export function lessonPage(root: HTMLElement, id: string): () => void {
     side.replaceChildren();
     st.cover(false);
     const scene = lesson!.scenes[idx];
-    side.append(bubble(scene.say));
-    speak(scene.say);
+    const say = withNicks(scene.say);
+    side.append(bubble(say));
+    speak(say);
     if (scene.kind !== 'real') prep(scene);
 
     if (scene.kind === 'talk') {
@@ -103,8 +106,8 @@ export function lessonPage(root: HTMLElement, id: string): () => void {
         if (busy || step >= scene.steps.length) return;
         busy = true;
         const s = scene.steps[step];
-        sayBox.textContent = s.say;
-        speak(s.say);
+        sayBox.textContent = withNicks(s.say);
+        speak(sayBox.textContent);
         await playWithArrows(view, s.moves, (i) => av.at(offsets[step] + i));
         step++;
         busy = false;
@@ -232,7 +235,7 @@ export function lessonPage(root: HTMLElement, id: string): () => void {
         } else opts = scene.options;
         box.replaceChildren(
           ...opts.map((o) => {
-            const b = h('button', { class: 'option' }, o.label);
+            const b = h('button', { class: 'option' }, withNicks(o.label));
             b.onclick = () => {
               if (o.ok) {
                 b.classList.add('ok');
@@ -285,7 +288,7 @@ export function lessonPage(root: HTMLElement, id: string): () => void {
             'div',
             { class: 'parent-note' },
             h('b', null, '家长摆法：'),
-            '拿一个复原的魔方（白色朝下、绿色朝前），做 ',
+            `拿一个复原的魔方（白色朝下、${faceName('F')}色朝前），做 `,
             h('span', { class: 'alg' }, scene.parentSetup),
             '，就摆出了这个情况。',
             h('button', { class: 'btn ghost', style: 'margin-top:8px;font-size:16px;padding:8px 14px', onclick: () => {

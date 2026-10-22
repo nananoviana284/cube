@@ -66,6 +66,24 @@ export function movePad(moves: string[], onMove: (m: string) => void): { el: HTM
     buttons.set(m, b);
     el.append(b);
   }
+  // 电脑上可以直接按键盘：R 键 = R，Shift+R = R'，按住 Alt 再按 = 转两下
+  const onKey = (e: KeyboardEvent) => {
+    if (!el.isConnected) return document.removeEventListener('keydown', onKey);
+    if (e.ctrlKey || e.metaKey || (e.target as HTMLElement).tagName === 'INPUT') return;
+    const letter = e.code.startsWith('Key') ? e.code.slice(3) : '';
+    if (!letter) return;
+    const face = /^[RLUDFBM]$/.test(letter) ? letter : /^[XYZ]$/.test(letter) ? letter.toLowerCase() : '';
+    if (!face) return;
+    const token = face + (e.altKey ? '2' : e.shiftKey ? "'" : '');
+    if (!buttons.has(token)) return;
+    e.preventDefault();
+    const b = buttons.get(token)!;
+    b.classList.add('pressed');
+    setTimeout(() => b.classList.remove('pressed'), 150);
+    onMove(token);
+  };
+  document.addEventListener('keydown', onKey);
+  el.append(h('div', { class: 'keys-tip' }, '⌨️ 电脑键盘：按 R 就是 R，Shift+R 就是 R\'，Alt+U 就是 U2'));
   return {
     el,
     mark(m) {

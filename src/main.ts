@@ -1,3 +1,4 @@
+import './scheme';
 import './style.css';
 import { homePage, islandPage } from './pages/home';
 import { lessonPage } from './pages/lesson';
@@ -5,6 +6,7 @@ import { gamePage } from './pages/games';
 import { timerPage } from './pages/timer';
 import { parentPage } from './pages/parent';
 import { labPage } from './pages/lab';
+import { bookPage } from './pages/book';
 
 const app = document.getElementById('app')!;
 let cleanup: (() => void) | null = null;
@@ -29,6 +31,9 @@ function route(): void {
       break;
     case 'parent':
       cleanup = parentPage(app);
+      break;
+    case 'book':
+      cleanup = bookPage(app);
       break;
     case 'lab':
       cleanup = labPage(app);

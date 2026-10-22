@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CubeState, type Vec } from '../src/cube/model';
+import { CubeState, HOME_COLOR, setFrontColor, type Vec } from '../src/cube/model';
 import { applyAlg, invertAlg, stateFrom } from '../src/cube/alg';
 import { F2L_CASES, OLL_CORNERS, OLL_EDGES, PLL_CORNERS, PLL_EDGES, joinSteps } from '../src/content/algs';
 
@@ -36,6 +36,14 @@ describe('model basics', () => {
     expect(posName(stateFrom('R').byId('FR').pos)).toBe('UR');
     expect(posName(stateFrom('U').byId('UF').pos)).toBe('UL');
     expect(posName(stateFrom('F').byId('UF').pos)).toBe('FR');
+  });
+  it('red-front scheme keeps the standard colour layout', () => {
+    setFrontColor('R');
+    expect([HOME_COLOR.F, HOME_COLOR.R, HOME_COLOR.B, HOME_COLOR.L]).toEqual(['R', 'G', 'O', 'B']);
+    expect(stateFrom("R U R' U'").isSolved()).toBe(false);
+    expect(stateFrom('').isSolved()).toBe(true);
+    setFrontColor('G');
+    expect([HOME_COLOR.F, HOME_COLOR.R]).toEqual(['G', 'O']);
   });
   it('alg then inverse is identity', () => {
     const a = "R U2 R' f R U R' U' f' M2 x y' r2 U'";

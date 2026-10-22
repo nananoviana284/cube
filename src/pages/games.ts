@@ -5,6 +5,7 @@ import { load, save } from '../store';
 import { beep, celebrate, h, pick, speak, stopSpeak } from '../ui/dom';
 import { bubble, movePad, playWithArrows, stage, topbar, wait } from '../ui/components';
 import { GAMES } from './home';
+import { rater, withNicks } from './book';
 
 function bestLine(id: string, text: (v: number) => string): HTMLElement {
   const v = load().best[id];
@@ -162,11 +163,17 @@ function f2lGame(root: HTMLElement): () => void {
   let auf = '';
   let hinting = false;
   const info = h('div', { class: 'step-say' });
+  const rateBox = h('div', { class: 'rate-box' });
   const side = h('div', { class: 'side' });
   const modeBtn = h('button', { class: 'btn ghost' });
   const newCase = () => {
     const pool = F2L_CASES.filter((c) => !onlyBasic || c.basic);
-    current = pick(pool);
+    // 公式本里"不会"的出现得多，"会了"的少
+    const sk = load().skills;
+    const weight = (id: string) => [3, 2, 1][sk[`f2l-${id}`] ?? 1];
+    let r = Math.random() * pool.reduce((a, c) => a + weight(c.id), 0);
+    current = pool.find((c) => (r -= weight(c.id)) < 0) ?? pool[0];
+    rateBox.replaceChildren(h('span', { class: 'muted' }, '这一个：'), rater(`f2l-${current.id}`));
     auf = pick(['', 'U', "U'", 'U2']);
     setup = `${invertAlg(joinSteps(current.steps))} ${auf}`.trim();
     view.setAlg(setup);
@@ -194,8 +201,8 @@ function f2lGame(root: HTMLElement): () => void {
     if (hinting) return;
     hinting = true;
     view.setAlg(setup);
-    info.textContent = `${current.emoji} ${current.name}：${current.look}`;
-    speak(current.name);
+    info.textContent = withNicks(`${current.emoji} ${current.name}：${current.look}`);
+    speak(load().nick[`f2l-${current.id}`] || current.name);
     await playWithArrows(view, `${auf ? invertAlg(auf) : ''} ${joinSteps(current.steps)}`.trim());
     await wait(600);
     view.setAlg(setup);
@@ -212,6 +219,7 @@ function f2lGame(root: HTMLElement): () => void {
     bubble('让亮着的好朋友回家！先说出是哪把钥匙，再动手。'),
     info,
     pad.el,
+    rateBox,
     h('div', { class: 'btn-row' }, hintBtn, h('button', { class: 'btn ghost', onclick: () => view.setAlg(setup) }, '🔁 重来'), h('button', { class: 'btn ghost', onclick: newCase }, '⏭ 换一个')),
     modeBtn,
   );

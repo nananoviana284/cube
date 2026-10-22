@@ -1,5 +1,6 @@
 import { LESSONS, lessonById } from '../content/lessons';
-import { OLL_CORNERS, OLL_EDGES, PLL_CORNERS, PLL_EDGES } from '../content/algs';
+import type { Color } from '../cube/model';
+import { BOOK } from './book';
 import { load, save, today, weekNumber } from '../store';
 import { h, starsText } from '../ui/dom';
 import { topbar } from '../ui/components';
@@ -22,16 +23,57 @@ export const PLAN: Week[] = [
   { week: 6, theme: '先做哪一对', lessons: ['choose'], games: '乌龟节拍器 40~60', real: '十字后先说出 4 对位置再开始' },
   { week: 7, theme: '侦探眼：边做边看', lessons: ['look', 'inspect'], games: '跟踪小侦探、节拍器', real: '15 秒观察 + 计时，标记"哪里卡住"' },
   { week: 8, theme: '七步法变四步 + 黄十字', lessons: ['map7', 'ollcross'], games: '—', real: '顶层十字一次认对，不再重复做' },
-  { week: 9, theme: '小鱼家族（查漏补缺）', lessons: ['fish'], games: '—', real: '在家长中心勾选已会的公式，每天复习不会的 1 个' },
+  { week: 9, theme: '小鱼家族（查漏补缺）', lessons: ['fish'], games: '—', real: '在公式本里打分，每天复习"不会"的 1~2 个' },
   { week: 10, theme: '认车灯：PLL 角', lessons: ['lights'], games: '车灯快认', real: '做完 OLL 停 2 秒说出车灯在哪' },
   { week: 11, theme: 'PLL 棱：一次做对', lessons: ['edges'], games: '车灯快认', real: '顶层四步全部用新方法' },
   { week: 12, theme: '整合 + 提速', lessons: [], games: '节拍器逐步加快', real: '和第 1 周成绩对比，庆祝！' },
 ];
 
+/** 按每天练习时长给出今天的安排 */
+function dailyPlan(wk: number): HTMLElement {
+  const w = PLAN[wk - 1];
+  const lessons = w.lessons.map((id) => lessonById(id)?.title).join('、') || '复习之前的课，挑星星最少的';
+  const mins = load().dailyMinutes;
+  const blocks: [string, string][] =
+    mins >= 60
+      ? [
+          ['第 1 段 · 15 分钟', `热身小游戏（${w.games}）+ 新课：${lessons}`],
+          ['休息 5 分钟', '站起来活动，喝水，别看屏幕'],
+          ['第 2 段 · 15 分钟', `真魔方：${w.real}`],
+          ['休息 5 分钟', ''],
+          ['第 3 段 · 15 分钟', '公式本：复习"不会/还不熟"的情况，练完重新打分；F2L 练习场 10 个'],
+          ['最后 5 分钟', '计时器 3 次，点"哪里卡住"'],
+        ]
+      : mins >= 30
+        ? [
+            ['第 1 段 · 12 分钟', `热身小游戏 + 新课：${lessons}`],
+            ['休息 3 分钟', ''],
+            ['第 2 段 · 15 分钟', `真魔方：${w.real}；最后计时 3 次`],
+          ]
+        : [
+            ['热身 3 分钟', `小游戏（${w.games}）`],
+            ['新课 7 分钟', lessons],
+            ['真魔方 5 分钟', w.real],
+          ];
+  return h(
+    'table',
+    null,
+    ...blocks.map(([k, v]) => h('tr', null, h('td', { style: 'white-space:nowrap;font-weight:700' }, k), h('td', null, v))),
+  );
+}
+
+function bookSummary(): string {
+  const sk = load().skills;
+  const count = (v: number) => BOOK.filter((b) => sk[b.key] === v).length;
+  const weak = BOOK.filter((b) => sk[b.key] === 0).map((b) => load().nick[b.key] || b.name);
+  return `会了 ${count(2)} 个，还不熟 ${count(1)} 个，不会 ${count(0)} 个，没打分 ${BOOK.length - count(0) - count(1) - count(2)} 个。${weak.length ? `接下来先练：${weak.slice(0, 4).join('、')}。` : ''}`;
+}
+
 export function parentPage(root: HTMLElement): () => void {
   const d = load();
   const wk = Math.min(weekNumber(), 12);
 
+  const planBox = h('div', null, dailyPlan(wk));
   const nameInput = h('input', { type: 'text', value: d.kidName }) as HTMLInputElement;
   nameInput.onchange = () => save((x) => (x.kidName = nameInput.value.trim() || '小魔方'));
 
@@ -59,12 +101,44 @@ export function parentPage(root: HTMLElement): () => void {
     );
   syncSpeed();
 
+  const frontSel = h('div', { class: 'chips' });
+  const fronts: [Color, string][] = [
+    ['G', '绿色朝前'],
+    ['R', '红色朝前'],
+    ['B', '蓝色朝前'],
+    ['O', '橙色朝前'],
+  ];
+  frontSel.append(
+    ...fronts.map(([c, n]) => {
+      const b = h('button', { class: 'chip' + (load().front === c ? ' on' : '') }, n);
+      b.onclick = () => {
+        save((x) => (x.front = c));
+        location.reload();
+      };
+      return b;
+    }),
+  );
+  const minutesSel = h('div', { class: 'chips' });
+  const syncMinutes = () =>
+    minutesSel.replaceChildren(
+      ...[15, 30, 60].map((m) => {
+        const b = h('button', { class: 'chip' + (load().dailyMinutes === m ? ' on' : '') }, `${m} 分钟`);
+        b.onclick = () => {
+          save((x) => (x.dailyMinutes = m));
+          syncMinutes();
+          planBox.replaceChildren(dailyPlan(wk));
+        };
+        return b;
+      }),
+    );
+  syncMinutes();
+
   // 打卡
   const t = today();
   const practiceRow = h('div', { class: 'chips' });
   const syncPractice = () =>
     practiceRow.replaceChildren(
-      ...[0, 5, 10, 15, 20].map((m) => {
+      ...[0, 15, 30, 45, 60].map((m) => {
         const b = h('button', { class: 'chip' + (load().practice[t] === m ? ' on' : '') }, m ? `${m} 分钟` : '今天休息');
         b.onclick = () => {
           save((x) => (x.practice[t] = m));
@@ -79,18 +153,6 @@ export function parentPage(root: HTMLElement): () => void {
     const k = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
     return d.practice[k] ? '🟩' : '⬜';
   }).join('');
-
-  // 已会公式
-  const known = (id: string, label: string) => {
-    const b = h('button', { class: 'chip' + (load().knownLL.includes(id) ? ' on' : '') }, label);
-    b.onclick = () => {
-      save((x) => {
-        x.knownLL = x.knownLL.includes(id) ? x.knownLL.filter((k) => k !== id) : [...x.knownLL, id];
-      });
-      b.classList.toggle('on');
-    };
-    return b;
-  };
 
   const ss = d.solves;
   const a5 = avgOf(ss, 5);
@@ -109,22 +171,8 @@ export function parentPage(root: HTMLElement): () => void {
       { class: 'panel' },
       h('h2', null, '📅 今天练什么'),
       h('p', null, h('b', null, `第 ${wk} 周：${PLAN[wk - 1].theme}`)),
-      h(
-        'p',
-        null,
-        '建议 15 分钟，分 3 段：',
-        h('br'),
-        '① 热身 3 分钟：一个小游戏（',
-        PLAN[wk - 1].games,
-        '）',
-        h('br'),
-        '② 新课 / 复习 7 分钟：',
-        PLAN[wk - 1].lessons.map((id) => lessonById(id)?.title).join('、') || '复习之前的课，挑星星最少的',
-        h('br'),
-        '③ 真魔方 5 分钟：',
-        PLAN[wk - 1].real,
-      ),
-      h('p', { class: 'muted' }, '孩子还想玩的时候就停，比练到烦了再停效果好得多。'),
+      planBox,
+      h('p', { class: 'muted' }, '孩子还想玩的时候就停，比练到烦了再停效果好得多。5 岁孩子一次专注大约 15 分钟，所以一小时要拆成几段，中间站起来活动一下。'),
       h('h3', null, '今天练了多久？'),
       practiceRow,
       h('p', { class: 'muted' }, `最近 14 天：${last14}`),
@@ -216,15 +264,10 @@ export function parentPage(root: HTMLElement): () => void {
     h(
       'div',
       { class: 'panel' },
-      h('h2', null, '✅ 已经会的顶层公式'),
-      h('p', { class: 'muted' }, '勾上孩子已经能独立做对的。没勾的就是接下来要补的。'),
-      h('h3', null, 'OLL 第一步：黄十字'),
-      h('div', { class: 'chips' }, ...OLL_EDGES.map((c) => known(`oe-${c.id}`, `${c.emoji} ${c.name}`))),
-      h('h3', null, 'OLL 第二步：小鱼家族'),
-      h('div', { class: 'chips' }, ...OLL_CORNERS.map((c) => known(`oc-${c.id}`, `${c.emoji} ${c.name}`))),
-      h('h3', null, 'PLL'),
-      h('div', { class: 'chips' }, ...[...PLL_CORNERS, ...PLL_EDGES].map((c) => known(`p-${c.id}`, `${c.emoji} ${c.name}`))),
-      h('p', { class: 'muted' }, '每个公式都可以在"自由魔方"里输入，点"看它解决什么"给孩子演示。'),
+      h('h2', null, '📒 公式本：会不会'),
+      h('p', null, bookSummary()),
+      h('p', { class: 'muted' }, '每个情况都有图和动画，可以写上家里的叫法，并打分"不会 / 还不熟 / 会了"。打分会让练习场多出"不会"的情况。'),
+      h('button', { class: 'btn blue', onclick: () => (location.hash = '#/book') }, '打开公式本'),
     ),
     h(
       'div',
@@ -233,7 +276,11 @@ export function parentPage(root: HTMLElement): () => void {
       h('p', null, '孩子的名字：', nameInput),
       h('div', { class: 'chips' }, voice),
       h('div', { style: 'margin-top:8px' }, speedSel),
-      h('p', { class: 'muted' }, '颜色约定：白色底、黄色顶、绿色朝前（和大多数 CFOP 教程一致）。数据只保存在这台设备的浏览器里。'),
+      h('h3', null, '朝前的颜色'),
+      frontSel,
+      h('h3', null, '每天练习时间'),
+      minutesSel,
+      h('p', { class: 'muted' }, '白色永远在底、黄色在顶。朝前的颜色可以换：大多数 CFOP 教程用绿色朝前；学过桥式法的话，红色朝前可能更顺手。建议选定一个后固定下来，这样孩子会形成"颜色的位置感"，观察会更快。数据只保存在这台设备的浏览器里。'),
       h(
         'div',
         { class: 'chips' },

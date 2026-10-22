@@ -1,4 +1,5 @@
 import { randomScramble } from '../cube/alg';
+import { faceName } from '../cube/model';
 import { load, save, type Solve } from '../store';
 import { beep, h, speak } from '../ui/dom';
 import { topbar } from '../ui/components';
@@ -64,7 +65,7 @@ export function timerPage(root: HTMLElement): () => void {
     face.className = 'timer-face' + (mode === 'inspect' ? ' inspect' : mode === 'run' ? ' ready' : '');
     inspBtn.className = 'chip' + (useInspect ? ' on' : '');
     inspBtn.textContent = '15 秒观察';
-    scr.replaceChildren(h('b', null, '打乱：'), h('span', { class: 'alg' }, scramble), h('div', { class: 'muted' }, '白色朝下、绿色朝前，照着做'));
+    scr.replaceChildren(h('b', null, '打乱：'), h('span', { class: 'alg' }, scramble), h('div', { class: 'muted' }, `白色朝下、${faceName('F')}色朝前，照着做`));
   };
   const renderStats = () => {
     const ss = load().solves;
