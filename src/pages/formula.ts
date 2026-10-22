@@ -1,9 +1,10 @@
-import { applyAlg, invertAlg, stateFrom } from '../cube/alg';
+import { applyAlg, invertAlg, parseAlg, stateFrom } from '../cube/alg';
 import { anglesOf, effectOf, effectText } from '../content/effect';
 import { load, save } from '../store';
 import { h, speak } from '../ui/dom';
 import { stateDiagram, topDiagram } from '../ui/diagram';
-import { algView, keyBtn, playWithArrows, stage, topbar } from '../ui/components';
+import { algView, kbd, keyBtn, stage, topbar } from '../ui/components';
+import { icon } from '../ui/icons';
 import { setKeys } from '../ui/keys';
 import { BOOK, GROUP_LOOK, nameOf, rater, type BookEntry } from './book';
 
@@ -35,26 +36,59 @@ export function formulaPage(root: HTMLElement, key: string): () => void {
     view.highlight(isF2L ? ['DFR', 'FR'] : null);
     av.at(-1);
   };
+  // 播放 / 暂停 / 继续：同一个按钮（空格）。恢复：回到一开始的样子（2）。
+  let state: 'idle' | 'playing' | 'paused' | 'done' = 'idle';
+  let resume: (() => void) | null = null;
+  const playBtn = h('button', { class: 'btn green', type: 'button', onclick: () => toggle() });
+  const syncBtn = () => {
+    const [label, ic] =
+      state === 'playing' ? ['暂停', 'stop'] : state === 'paused' ? ['继续', 'play'] : state === 'done' ? ['再看一遍', 'replay'] : ['播放', 'play'];
+    playBtn.replaceChildren(icon(ic as 'stop', 22), h('span', { class: 'lbl' }, label), kbd('空格'));
+  };
+  const setState = (v: typeof state) => {
+    state = v;
+    syncBtn();
+  };
   const play = async () => {
     const my = ++playGen;
+    resume?.();
+    resume = null;
     pose();
+    setState('playing');
     await new Promise((r) => setTimeout(r, 500));
-    if (my !== playGen) return;
-    await playWithArrows(view, e.alg, (i) => my === playGen && av.at(i), 300);
-  };
-  /** 一段一段做：每段做完停一下，念出这一段在干什么 */
-  const segments = e.steps ?? e.chain;
-  const playSteps = async () => {
-    if (!segments) return;
-    const my = ++playGen;
-    pose();
-    await new Promise((r) => setTimeout(r, 500));
-    for (const step of segments) {
+    const moves = parseAlg(e.alg).map((m) => m.text);
+    for (let i = 0; i < moves.length; i++) {
+      // 暂停：等这一步做完，停在这里，按继续再往下
+      if (state === 'paused') await new Promise<void>((r) => (resume = r));
       if (my !== playGen) return;
-      await speak(step.say);
+      av.at(i);
+      view.showArrow(moves[i]);
+      view.onMove?.(moves[i]);
+      await Promise.all([new Promise((r) => setTimeout(r, 300)), speak(moves[i])]);
+      view.showArrow(null);
       if (my !== playGen) return;
-      await playWithArrows(view, step.moves, undefined, 300);
+      await view.play(moves[i]);
+      if (my !== playGen) return;
     }
+    av.at(moves.length);
+    setState('done');
+  };
+  const toggle = () => {
+    if (state === 'playing') setState('paused');
+    else if (state === 'paused') {
+      setState('playing');
+      resume?.();
+      resume = null;
+    } else play();
+  };
+  /** 恢复：停下来，回到一开始的样子 */
+  const restore = () => {
+    playGen++;
+    resume?.();
+    resume = null;
+    view.showArrow(null);
+    pose();
+    setState('idle');
   };
 
   const nick = h('input', { type: 'text', placeholder: '比如：大眼睛', value: load().nick[e.key] ?? '' }) as HTMLInputElement;
@@ -69,8 +103,8 @@ export function formulaPage(root: HTMLElement, key: string): () => void {
     h(
       'div',
       { class: 'fd-actions' },
-      keyBtn('btn green', '再看一遍', '空格', play, 'replay'),
-      segments ? keyBtn('btn blue', '一段一段看', '2', playSteps, 'play') : null,
+      playBtn,
+      keyBtn('btn ghost', '恢复', '2', restore, 'replay'),
     ),
     h('div', { class: 'fd-rate' }, h('span', null, '会不会'), rater(e.key)),
     h('label', { class: 'nick-field' }, '我们家叫它', nick),
@@ -87,10 +121,11 @@ export function formulaPage(root: HTMLElement, key: string): () => void {
   );
 
   root.append(topbar(nameOf(e), '#/', nav), h('p', { class: 'fd-look' }, e.look), h('main', { class: 'fd-layout' }, demo, info));
-  setKeys({ space: play, '2': segments ? playSteps : undefined, left: () => go(-1), right: () => go(1), esc: () => (location.hash = '#/') });
+  setKeys({ space: toggle, '2': restore, left: () => go(-1), right: () => go(1), esc: () => (location.hash = '#/') });
   play();
   return () => {
     playGen++;
+    resume?.();
     view.dispose();
   };
 }
@@ -147,7 +182,6 @@ function stepCards(e: BookEntry): Node[] {
       card(
         '每一步在做什么',
         h('ol', { class: 'fd-steps' }, ...e.steps.map((s) => h('li', null, h('b', { class: 'alg' }, s.moves), h('span', null, s.say)))),
-        h('p', { class: 'muted' }, '按 2 一段一段看。'),
       ),
     ];
   if (e.chain) {
@@ -161,7 +195,7 @@ function stepCards(e: BookEntry): Node[] {
         h('figure', null, stateDiagram(s, mode), h('figcaption', null, (step.say.split('：')[1] ?? step.say.split('，')[0]).replace(/[！。]$/, ''))),
       );
     }
-    return [card('拼起来的：一段一段变成什么样', row, h('p', { class: 'muted' }, '按 2 一段一段看。'))];
+    return [card('拼起来的：一段一段变成什么样', row)];
   }
   return [];
 }
