@@ -1,9 +1,9 @@
-import { invertAlg } from '../cube/alg';
+import { applyAlg, invertAlg, stateFrom } from '../cube/alg';
 import { mirrorAlg } from '../content/slots';
-import { F2L_CASES, OLL_CORNERS, OLL_EDGES, PLL_CORNERS, PLL_EDGES, joinSteps } from '../content/algs';
+import { F2L_CASES, OLL_CORNERS, OLL_EDGES, PLL_CORNERS, PLL_EDGES, joinSteps, type Step } from '../content/algs';
 import { load, save } from '../store';
-import { beep, h } from '../ui/dom';
-import { topDiagram } from '../ui/diagram';
+import { beep, h, speak } from '../ui/dom';
+import { stateDiagram, topDiagram, type DiagramMode } from '../ui/diagram';
 import { algView, keyBtn, pageHeader, playWithArrows, stage, tabbar } from '../ui/components';
 import { icon } from '../ui/icons';
 import { setKeys } from '../ui/keys';
@@ -15,9 +15,11 @@ export interface BookEntry {
   emoji: string;
   look: string;
   alg: string;
-  diagram?: 'oll' | 'pll';
+  diagram?: DiagramMode;
   /** 亲戚：和别的公式的关系 */
   kin?: string;
+  chain?: Step[];
+  rel?: { label: string; to: string }[];
 }
 
 export const BOOK: BookEntry[] = [
@@ -30,9 +32,9 @@ export const BOOK: BookEntry[] = [
     alg: joinSteps(c.steps),
     kin: `照镜子（家在左前）：${mirrorAlg(joinSteps(c.steps))}`,
   })),
-  ...OLL_EDGES.map((c) => ({ key: `oe-${c.id}`, group: 'OLL 第一步：黄十字', name: c.name, emoji: c.emoji, look: c.look, alg: c.alg, kin: c.kin, diagram: 'oll' as const })),
-  ...OLL_CORNERS.map((c) => ({ key: `oc-${c.id}`, group: 'OLL 第二步：顶面全黄', name: c.name, emoji: c.emoji, look: c.look, alg: c.alg, kin: c.kin, diagram: 'oll' as const })),
-  ...[...PLL_CORNERS, ...PLL_EDGES].map((c) => ({ key: `p-${c.id}`, group: 'PLL：侧面排好', name: c.name, emoji: c.emoji, look: c.look, alg: c.alg, kin: c.kin, diagram: 'pll' as const })),
+  ...OLL_EDGES.map((c) => ({ key: `oe-${c.id}`, group: 'OLL 第一步：黄十字', name: c.name, emoji: c.emoji, look: c.look, alg: c.alg, kin: c.kin, chain: c.chain, rel: c.rel, diagram: 'edges' as const })),
+  ...OLL_CORNERS.map((c) => ({ key: `oc-${c.id}`, group: 'OLL 第二步：顶面全黄', name: c.name, emoji: c.emoji, look: c.look, alg: c.alg, kin: c.kin, chain: c.chain, rel: c.rel, diagram: 'oll' as const })),
+  ...[...PLL_CORNERS, ...PLL_EDGES].map((c) => ({ key: `p-${c.id}`, group: 'PLL：侧面排好', name: c.name, emoji: c.emoji, look: c.look, alg: c.alg, kin: c.kin, chain: c.chain, rel: c.rel, diagram: 'pll' as const })),
 ];
 
 export const LEVELS = [
@@ -138,11 +140,53 @@ export function bookPage(root: HTMLElement): () => void {
     view.highlight(isF2L ? ['DFR', 'FR'] : null);
     pvName.textContent = nameOf(e);
     pvLook.textContent = e.look;
-    pvKin.textContent = e.kin ? `亲戚：${e.kin}` : '';
+    pvKin.replaceChildren(...kinView(e));
     nick.value = load().nick[e.key] ?? '';
     const av = algView(e.alg);
     algBox.replaceChildren(av.el);
     return av;
+  };
+  /** 亲戚：一句话 + 拼起来的一步步图 + 可以点过去的亲戚 */
+  const kinView = (e: BookEntry): Node[] => {
+    if (!e.kin) return [];
+    const out: Node[] = [h('div', { class: 'kin-title' }, `亲戚：${e.kin}`)];
+    if (e.diagram === 'edges') out.push(h('div', { class: 'kin-note' }, '黄十字这一步只看四个棱块（十字的位置）。角块画成虚线，先不用管。'));
+    const mode = e.diagram ?? 'oll';
+    if (e.chain) {
+      const s = stateFrom(invertAlg(e.alg));
+      const row = h('div', { class: 'kin-chain' }, h('figure', null, stateDiagram(s, mode), h('figcaption', null, nameOf(e))));
+      for (const step of e.chain) {
+        applyAlg(s, step.moves);
+        row.append(h('div', { class: 'kin-arrow' }, h('span', { class: 'alg' }, step.moves), '→'), h('figure', null, stateDiagram(s, mode), h('figcaption', null, (step.say.split('：')[1] ?? step.say.split('，')[0]).replace(/[！。]$/, ''))));
+      }
+      out.push(row, keyBtn('btn blue', '一段一段看', '2', () => playChain(e), 'play'));
+    }
+    if (e.rel)
+      out.push(
+        h(
+          'div',
+          { class: 'kin-rel' },
+          ...e.rel.map((r) => {
+            const t = BOOK.find((b) => b.key === r.to);
+            if (!t) return null;
+            return h('button', { class: 'kin-link', type: 'button', onclick: () => show(t) }, t.diagram ? topDiagram(t.alg, t.diagram) : null, h('span', null, `${r.label} → ${nameOf(t)}`));
+          }),
+        ),
+      );
+    return out;
+  };
+  /** 拼起来的公式：每做一段停一下，念出变成了什么 */
+  const playChain = async (e: BookEntry) => {
+    if (!e.chain) return;
+    const my = ++playGen;
+    pose(e);
+    await new Promise((r) => setTimeout(r, 500));
+    for (const step of e.chain) {
+      if (my !== playGen) return;
+      await playWithArrows(view, step.moves, undefined, 300);
+      if (my !== playGen) return;
+      await speak(step.say);
+    }
   };
   const play = async (e: BookEntry) => {
     const my = ++playGen;
@@ -232,7 +276,7 @@ export function bookPage(root: HTMLElement): () => void {
   syncTabs();
   renderGrid();
   pose(selected);
-  setKeys({ space: () => play(selected), esc: () => (location.hash = '#/') });
+  setKeys({ space: () => play(selected), '2': () => playChain(selected), esc: () => (location.hash = '#/') });
   root.append(
     pageHeader('公式本', undefined, summary),
     tabs,

@@ -2653,3 +2653,67 @@ body.parent-mode #app {
 .book-kin:empty {
   display: none;
 }
+.kin-title {
+  font-weight: 700;
+  color: var(--ink);
+}
+.kin-note {
+  margin-top: 4px;
+}
+.kin-chain {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 10px 0;
+}
+.kin-chain figure {
+  margin: 0;
+  width: 76px;
+  text-align: center;
+}
+.kin-chain .diagram {
+  width: 64px;
+  height: 64px;
+}
+.kin-chain figcaption {
+  font-size: 12px;
+  line-height: 1.3;
+}
+.kin-arrow {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-size: 18px;
+  font-weight: 800;
+  max-width: 96px;
+}
+.kin-arrow .alg {
+  font-size: 11px;
+  text-align: center;
+  word-break: keep-all;
+}
+.kin-rel {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+.kin-link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px 6px 6px;
+  border: 2px solid var(--line);
+  border-radius: 14px;
+  background: var(--card);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink);
+  cursor: pointer;
+}
+.kin-link .diagram {
+  width: 44px;
+  height: 44px;
+}
