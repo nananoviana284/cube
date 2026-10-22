@@ -185,7 +185,7 @@ export function bookPage(root: HTMLElement): () => void {
 
 /**
  * 这个公式的情况图：顶层公式画顶面，并叠上效果（打圈 = 会翻上来/拧正，箭头 = 去哪里，蓝框 = 认它要看的贴纸）；
- * 好朋友回家画立体图，只给这对好朋友上色，虚线框是它们的家。
+ * 好朋友回家画立体图，这对好朋友和中心块正常颜色，别的块淡一些，虚线框是它们的家。
  */
 export function casePicture(e: BookEntry): SVGSVGElement {
   const s = stateFrom(invertAlg(e.alg));
