@@ -103,8 +103,13 @@ export function beep(kind: 'good' | 'bad' | 'tick' | 'tock' | 'win'): void {
 export function celebrate(text = '太棒了！'): void {
   beep('win');
   const layer = h('div', { class: 'celebrate' }, h('div', { class: 'celebrate-text' }, text));
-  for (let i = 0; i < 18; i++) {
-    const s = h('span', { class: 'confetti', style: `left:${Math.random() * 100}%;animation-delay:${Math.random() * 0.4}s` }, ['⭐', '🌟', '✨', '🎉'][i % 4]);
+  // 彩纸用魔方的六个颜色
+  const colors = ['#FFC928', '#12A150', '#E5383B', '#2468E8', '#F28C28', '#FFFFFF'];
+  for (let i = 0; i < 22; i++) {
+    const s = h('span', {
+      class: 'confetti',
+      style: `left:${Math.random() * 100}%;animation-delay:${Math.random() * 0.4}s;background:${colors[i % colors.length]};transform:rotate(${Math.random() * 90}deg)`,
+    });
     layer.append(s);
   }
   document.body.append(layer);
